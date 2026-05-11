@@ -6,6 +6,9 @@
 #    ENTER o teclas 1-6              :  entrar al juego
 #    ESC (en juego)                  :  volver al lobby
 #    ESC (en lobby)                  :  salir
+#
+#  Niveles (desde el lobby, con personaje seleccionado):
+#    N1 / N2 / N3                    :  entrar a cada nivel
 # ============================================================
 import sys
 import math
@@ -22,6 +25,13 @@ import MegaCaballero.main  as p_mega
 import totoro.main         as p_totoro
 
 MODULOS_PERSONAJES = [p_fallguy, p_amongus, p_beru, p_gato, p_mega, p_totoro]
+
+# ── Módulos de niveles ────────────────────────────────────────
+from niveles import nivel1, nivel2, nivel3
+from niveles import state as nivel_state
+
+MODULOS_NIVELES    = [None, nivel1, nivel2, nivel3]   # índice 1-3
+_nivel_initialized = [False, False, False, False]     # [0] no se usa
 
 # ── Módulos de dibujo directos para el lobby 3D ──────────────
 from fallguy.characters       import FullGuys     as _fg
@@ -84,6 +94,7 @@ _LOBBY_CFG = [
 WIN_W, WIN_H = 960, 620
 selected     = 0
 estado_juego = -1          # -1 = lobby,  0..5 = personaje activo
+estado_nivel = 0           # 0 = sin nivel, 1..3 = nivel activo
 _initialized = [False] * N
 
 # Animación del carrusel
@@ -376,6 +387,10 @@ def _draw_lobby_hud():
          "ENTER o 1-6 : jugar      ESC : salir",
          GLUT_BITMAP_HELVETICA_12, (0.78, 0.78, 0.78))
 
+    _txt(18, 34,
+         "N1 / N2 / N3 : entrar a nivel con el personaje seleccionado  (2 jugadores)",
+         GLUT_BITMAP_HELVETICA_12, (0.55, 0.90, 0.65))
+
     glEnable(GL_LIGHTING)
     glEnable(GL_DEPTH_TEST)
     glMatrixMode(GL_PROJECTION); glPopMatrix()
@@ -416,6 +431,37 @@ def _activate_character(idx):
     glutPostRedisplay()
 
 
+def _activate_nivel(num):
+    """
+    Entra al nivel num (1, 2 o 3) usando el personaje actualmente
+    seleccionado en el lobby como modelo visual de los jugadores.
+    """
+    global estado_nivel, estado_juego
+    estado_nivel = num
+    estado_juego = -1          # desactiva el modo personaje individual
+
+    # Guardar el índice de personaje en el state del nivel
+    nivel_state.personaje_idx = selected
+    nivel_state.WIN_W = WIN_W
+    nivel_state.WIN_H = WIN_H
+
+    mod = MODULOS_NIVELES[num]
+    if not _nivel_initialized[num]:
+        try:
+            mod.init()
+        except Exception as e:
+            print(f"[Arcade] init() error en nivel {num}: {e}")
+        _nivel_initialized[num] = True
+    else:
+        # Ya inicializado: solo resetear el estado del nivel
+        try:
+            mod.reset()
+        except Exception as e:
+            print(f"[Arcade] reset() error en nivel {num}: {e}")
+
+    glutPostRedisplay()
+
+
 def _navigate(delta):
     """Mueve la selección delta posiciones (con límites, sin wrap)."""
     global selected, _lob_target
@@ -437,8 +483,30 @@ def _navigate_to(idx):
 # ════════════════════════════════════════════════════════════
 # CALLBACKS GLUT
 # ════════════════════════════════════════════════════════════
+# CALLBACKS GLUT
+# ════════════════════════════════════════════════════════════
+
+def _get_draw_fns():
+    idx = nivel_state.personaje_idx
+    fns = [
+        _fg.draw_fallguy_full,
+        _au.draw_amongus_full,
+        _beru.draw,
+        _cat.draw_cat,
+        _mk.draw_megaknight_full,
+        _tot.draw_totoro_full,
+    ]
+    fn = fns[idx] if 0 <= idx < len(fns) else _au.draw_amongus_full
+    return fn, fn
+
+
 def display_maestro():
-    if estado_juego == -1:
+    global estado_nivel
+    if estado_nivel > 0:
+        mod = MODULOS_NIVELES[estado_nivel]
+        draw_p1, draw_p2 = _get_draw_fns()
+        mod.display(draw_p1, draw_p2)
+    elif estado_juego == -1:
         _draw_lobby_3d()
         _draw_lobby_hud()
         glutSwapBuffers()
@@ -450,19 +518,30 @@ def display_maestro():
 
 
 def keyboard_maestro(key, x, y):
-    global estado_juego
+    global estado_juego, estado_nivel
 
     if key == b'\x1b':
-        if estado_juego == -1:
+        if estado_nivel > 0:
+            estado_nivel = 0
+            arcade_init()
+            glutPostRedisplay()
+        elif estado_juego == -1:
             sys.exit(0)
         else:
             estado_juego = -1
-            arcade_init()        # Restaurar GL para el lobby
+            arcade_init()
             glutPostRedisplay()
         return
 
+    if estado_nivel > 0:
+        MODULOS_NIVELES[estado_nivel].keyboard(key, x, y)
+        return
+
     if estado_juego == -1:
-        if key in (b'\r', b'\n'):
+        if key in (b'n', b'N'):
+            siguiente = (estado_nivel % 3) + 1
+            _activate_nivel(siguiente)
+        elif key in (b'\r', b'\n'):
             _activate_character(selected)
         elif b'1' <= key <= b'6':
             _navigate_to(int(key) - ord('1'))
@@ -470,7 +549,17 @@ def keyboard_maestro(key, x, y):
         MODULOS_PERSONAJES[estado_juego].keyboard(key, x, y)
 
 
+def keyboard_up_maestro(key, x, y):
+    if estado_nivel > 0:
+        mod = MODULOS_NIVELES[estado_nivel]
+        if hasattr(mod, 'keyboard_up'):
+            mod.keyboard_up(key, x, y)
+
+
 def special_maestro(key, x, y):
+    if estado_nivel > 0:
+        MODULOS_NIVELES[estado_nivel].special_keys(key, x, y)
+        return
     if estado_juego == -1:
         if key == GLUT_KEY_LEFT:
             _navigate(-1)
@@ -481,17 +570,25 @@ def special_maestro(key, x, y):
             MODULOS_PERSONAJES[estado_juego].special_keys(key, x, y)
 
 
+def special_up_maestro(key, x, y):
+    if estado_nivel > 0:
+        mod = MODULOS_NIVELES[estado_nivel]
+        if hasattr(mod, 'special_keys_up'):
+            mod.special_keys_up(key, x, y)
+
+
 def mouse_maestro(button, state_btn, x, y):
     global _mouse_down, _mouse_last_x, _drag_accum
-
+    if estado_nivel > 0:
+        return
     if estado_juego == -1:
         if button == GLUT_LEFT_BUTTON:
             _mouse_down  = (state_btn == GLUT_DOWN)
             _mouse_last_x = x
             _drag_accum  = 0
-        elif button == 3 and state_btn == GLUT_DOWN:   # scroll arriba
+        elif button == 3 and state_btn == GLUT_DOWN:
             _navigate(-1)
-        elif button == 4 and state_btn == GLUT_DOWN:   # scroll abajo
+        elif button == 4 and state_btn == GLUT_DOWN:
             _navigate(1)
     else:
         if hasattr(MODULOS_PERSONAJES[estado_juego], 'mouse'):
@@ -500,7 +597,8 @@ def mouse_maestro(button, state_btn, x, y):
 
 def motion_maestro(x, y):
     global _mouse_last_x, _drag_accum
-
+    if estado_nivel > 0:
+        return
     if estado_juego == -1:
         if _mouse_down:
             dx = x - _mouse_last_x
@@ -518,7 +616,9 @@ def motion_maestro(x, y):
 
 
 def timer_maestro(value):
-    if estado_juego != -1:
+    if estado_nivel > 0:
+        MODULOS_NIVELES[estado_nivel].update(value)
+    elif estado_juego != -1:
         if hasattr(MODULOS_PERSONAJES[estado_juego], 'update'):
             MODULOS_PERSONAJES[estado_juego].update(value)
     glutPostRedisplay()
@@ -528,7 +628,10 @@ def timer_maestro(value):
 def reshape_maestro(w, h):
     global WIN_W, WIN_H
     WIN_W, WIN_H = w, max(h, 1)
-    if estado_juego != -1:
+    nivel_state.WIN_W = WIN_W
+    nivel_state.WIN_H = WIN_H
+    glViewport(0, 0, WIN_W, WIN_H)
+    if estado_nivel == 0 and estado_juego != -1:
         mod = MODULOS_PERSONAJES[estado_juego]
         if hasattr(mod, 'reshape'):
             mod.reshape(w, h)
@@ -548,7 +651,9 @@ def main():
 
     glutDisplayFunc(display_maestro)
     glutKeyboardFunc(keyboard_maestro)
+    glutKeyboardUpFunc(keyboard_up_maestro)
     glutSpecialFunc(special_maestro)
+    glutSpecialUpFunc(special_up_maestro)
     glutMouseFunc(mouse_maestro)
     glutMotionFunc(motion_maestro)
     glutReshapeFunc(reshape_maestro)
