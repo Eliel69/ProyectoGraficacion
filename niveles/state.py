@@ -11,9 +11,9 @@
 # 1,2,3  → nivel activo
 nivel_activo = None
 
-# Índice del personaje seleccionado en el lobby (0-5)
-# El nivel lo usa para saber qué función de dibujo llamar
-personaje_idx = 0
+# Índices de personaje seleccionados en el lobby (0-5)
+personaje_idx    = 0   # J1
+personaje_idx_p2 = 1   # J2
 
 # ── Jugador 1 (WASD) ─────────────────────────────────────────
 p1_x        = -2.0
