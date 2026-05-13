@@ -1,62 +1,74 @@
-# niveles/nivel1.py
-# NIVEL 1 — El Valle de los Colores
-# Ambos jugadores tienen instrucción simultánea independiente.
-# 6 objetos de distintas formas y colores dispersos por el mapa.
+# niveles/nivel1.py  — El Valle de los Colores
+# Dos formas (cubo y esfera), 10 colores distintos.
+# +2 por acierto, -1 por error. Meta: 20 puntos.
+# Instrucciones independientes para J1 y J2.
 import math, random
 from OpenGL.GL   import *
 from OpenGL.GLU  import *
 from OpenGL.GLUT import *
-from niveles     import state, camera, hud, players
+from niveles     import state, camera, players
 
-# ── Objetos del nivel: forma + color, bien dispersos ──────────
+# -- 10 colores, 2 formas (5 cubos + 5 esferas) dispersos --
 _OBJETOS = [
-    {"id":0, "nombre":"Roja",      "color":(0.88,0.12,0.12), "x":-7.0, "z":-5.0, "forma":"cubo"},
-    {"id":1, "nombre":"Azul",      "color":(0.12,0.28,0.92), "x": 7.0, "z":-5.0, "forma":"esfera"},
-    {"id":2, "nombre":"Amarilla",  "color":(0.95,0.88,0.05), "x":-7.0, "z": 5.0, "forma":"cubo"},
-    {"id":3, "nombre":"Verde",     "color":(0.12,0.80,0.22), "x": 7.0, "z": 5.0, "forma":"cilindro"},
-    {"id":4, "nombre":"Naranja",   "color":(0.98,0.52,0.05), "x": 0.0, "z":-8.0, "forma":"esfera"},
-    {"id":5, "nombre":"Morada",    "color":(0.65,0.12,0.90), "x": 0.0, "z": 8.0, "forma":"cubo"},
+    {"id":0,  "nombre":"Rojo",       "color":(0.90,0.10,0.10), "x":-8.0, "z":-6.0, "forma":"cubo"},
+    {"id":1,  "nombre":"Azul",       "color":(0.10,0.25,0.95), "x": 8.0, "z":-6.0, "forma":"esfera"},
+    {"id":2,  "nombre":"Amarillo",   "color":(0.95,0.88,0.05), "x":-8.0, "z": 6.0, "forma":"cubo"},
+    {"id":3,  "nombre":"Verde",      "color":(0.10,0.80,0.20), "x": 8.0, "z": 6.0, "forma":"esfera"},
+    {"id":4,  "nombre":"Naranja",    "color":(0.98,0.52,0.05), "x": 0.0, "z":-9.0, "forma":"cubo"},
+    {"id":5,  "nombre":"Morado",     "color":(0.65,0.10,0.90), "x": 0.0, "z": 9.0, "forma":"esfera"},
+    {"id":6,  "nombre":"Rosa",       "color":(0.98,0.45,0.75), "x":-4.0, "z": 0.0, "forma":"cubo"},
+    {"id":7,  "nombre":"Celeste",    "color":(0.30,0.85,0.98), "x": 4.0, "z": 0.0, "forma":"esfera"},
+    {"id":8,  "nombre":"Cafe",       "color":(0.60,0.35,0.10), "x":-6.0, "z":-2.0, "forma":"cubo"},
+    {"id":9,  "nombre":"Blanco",     "color":(0.95,0.95,0.95), "x": 6.0, "z": 2.0, "forma":"esfera"},
 ]
 
 _RADIO_OBJ = 1.0
-_LADO      = 1.4
+_LADO      = 1.2
 _RADIO_JUG = 0.5
 
-_obj_p1    = 0   # objeto que J1 debe tocar
-_obj_p2    = 1   # objeto que J2 debe tocar
-_anim_obj  = {}  # {id: angulo_giro}
+_obj_p1 = 0
+_obj_p2 = 1
+_anim_obj = {}
 _cooldown_p1 = 0
 _cooldown_p2 = 0
 
 
-def _reset_nivel():
-    global _obj_p1, _obj_p2, _anim_obj, _cooldown_p1, _cooldown_p2
+def _reset_posiciones():
     state.p1_x=-4.0; state.p1_z=0.0; state.p1_rot=0.0
     state.p2_x= 4.0; state.p2_z=0.0; state.p2_rot=180.0
     state.p1_walking=state.p2_walking=False
     state.p1_anim=state.p2_anim=0.0
     state.k_w=state.k_s=state.k_a=state.k_d=False
     state.k_up=state.k_down=state.k_left=state.k_right=False
-    state.score_p1=state.score_p2=0
-    state.hud_feedback=""; state.hud_fb_timer=0
+
+
+def _reset_nivel():
+    global _obj_p1,_obj_p2,_anim_obj,_cooldown_p1,_cooldown_p2
+    _reset_posiciones()
+    state.nivel_score_p1=0
+    state.nivel_score_p2=0
     state.nivel_completado=False
+    state.nivel_ganador=0
+    state.mostrar_resultado=False
+    state.resultado_timer=0
+    state.hud_fb_p1=""; state.hud_fb_timer_p1=0
+    state.hud_fb_p2=""; state.hud_fb_timer_p2=0
     _anim_obj={o["id"]:0.0 for o in _OBJETOS}
     _cooldown_p1=_cooldown_p2=0
-    _nueva_instruccion_p1()
-    _nueva_instruccion_p2()
+    _nueva_p1(); _nueva_p2()
 
 
-def _nueva_instruccion_p1():
+def _nueva_p1():
     global _obj_p1
-    _obj_p1 = random.randint(0, len(_OBJETOS)-1)
-    nombre = _OBJETOS[_obj_p1]["nombre"]
-    state.hud_msg = f"J1: !Toca la figura {nombre}!"
+    _obj_p1 = random.randint(0,len(_OBJETOS)-1)
+    o = _OBJETOS[_obj_p1]
+    state.hud_msg = "J1: Toca el " + o["forma"] + " " + o["nombre"] + "!"
 
-def _nueva_instruccion_p2():
+def _nueva_p2():
     global _obj_p2
-    _obj_p2 = random.randint(0, len(_OBJETOS)-1)
-    # guardar segunda instrucción en un campo extra
-    state.hud_msg2 = f"J2: !Toca la figura {_OBJETOS[_obj_p2]['nombre']}!"
+    _obj_p2 = random.randint(0,len(_OBJETOS)-1)
+    o = _OBJETOS[_obj_p2]
+    state.hud_msg2 = "J2: Toca el " + o["forma"] + " " + o["nombre"] + "!"
 
 
 def _dist2d(ax,az,bx,bz):
@@ -64,42 +76,65 @@ def _dist2d(ax,az,bx,bz):
 
 
 def _check_colisiones():
-    global _cooldown_p1, _cooldown_p2
+    global _cooldown_p1,_cooldown_p2
+    if state.nivel_completado:
+        return
 
-    # J1
-    if _cooldown_p1 > 0:
-        _cooldown_p1 -= 1
+    if _cooldown_p1>0:
+        _cooldown_p1-=1
     else:
         for obj in _OBJETOS:
-            if _dist2d(state.p1_x,state.p1_z,obj["x"],obj["z"]) < (_RADIO_OBJ+_RADIO_JUG):
-                if obj["id"] == _obj_p1:
-                    state.hud_fb_p1="!J1 Correcto!"; state.hud_fb_timer_p1=90
-                    state.score_p1 += 1
-                    _anim_obj[obj["id"]] = 1.0
+            if _dist2d(state.p1_x,state.p1_z,obj["x"],obj["z"])<(_RADIO_OBJ+_RADIO_JUG):
+                if obj["id"]==_obj_p1:
+                    state.nivel_score_p1=min(state.nivel_score_p1+2, state.META_PUNTOS)
+                    state.hud_fb_p1="Correcto! +2"; state.hud_fb_timer_p1=80
+                    _anim_obj[obj["id"]]=1.0
                 else:
-                    state.hud_fb_p1="J1: Ups..."; state.hud_fb_timer_p1=70
+                    state.nivel_score_p1=max(0,state.nivel_score_p1-1)
+                    state.hud_fb_p1="Ups! -1"; state.hud_fb_timer_p1=70
                 _cooldown_p1=55
-                _nueva_instruccion_p1()
+                _nueva_p1()
+                _check_meta()
                 break
 
-    # J2
-    if _cooldown_p2 > 0:
-        _cooldown_p2 -= 1
+    if _cooldown_p2>0:
+        _cooldown_p2-=1
     else:
         for obj in _OBJETOS:
-            if _dist2d(state.p2_x,state.p2_z,obj["x"],obj["z"]) < (_RADIO_OBJ+_RADIO_JUG):
-                if obj["id"] == _obj_p2:
-                    state.hud_fb_p2="!J2 Correcto!"; state.hud_fb_timer_p2=90
-                    state.score_p2 += 1
-                    _anim_obj[obj["id"]] = 1.0
+            if _dist2d(state.p2_x,state.p2_z,obj["x"],obj["z"])<(_RADIO_OBJ+_RADIO_JUG):
+                if obj["id"]==_obj_p2:
+                    state.nivel_score_p2=min(state.nivel_score_p2+2, state.META_PUNTOS)
+                    state.hud_fb_p2="Correcto! +2"; state.hud_fb_timer_p2=80
+                    _anim_obj[obj["id"]]=1.0
                 else:
-                    state.hud_fb_p2="J2: Ups..."; state.hud_fb_timer_p2=70
+                    state.nivel_score_p2=max(0,state.nivel_score_p2-1)
+                    state.hud_fb_p2="Ups! -1"; state.hud_fb_timer_p2=70
                 _cooldown_p2=55
-                _nueva_instruccion_p2()
+                _nueva_p2()
+                _check_meta()
                 break
 
 
-# ── Dibujo ────────────────────────────────────────────────────
+def _check_meta():
+    if state.nivel_completado:
+        return
+    if state.nivel_score_p1>=state.META_PUNTOS:
+        _terminar_nivel(1)
+    elif state.nivel_score_p2>=state.META_PUNTOS:
+        _terminar_nivel(2)
+
+
+def _terminar_nivel(ganador):
+    state.nivel_completado=True
+    state.nivel_ganador=ganador
+    state.mostrar_resultado=True
+    state.resultado_timer=220   # ~3.7s antes de pasar al nivel 2
+    # Acumular puntaje
+    state.score_p1+=state.nivel_score_p1
+    state.score_p2+=state.nivel_score_p2
+
+
+# -- Dibujo -------------------------------------------------------
 def _draw_floor():
     glDisable(GL_LIGHTING)
     glColor3f(0.72,0.72,0.72)
@@ -115,7 +150,8 @@ def _draw_floor():
     glEnd(); glLineWidth(1.0)
     glEnable(GL_LIGHTING)
 
-def _draw_cubo(s=_LADO):
+
+def _draw_cubo(s):
     glBegin(GL_QUADS)
     glVertex3f(-s,s*2, s); glVertex3f(s,s*2, s); glVertex3f(s,s*2,-s); glVertex3f(-s,s*2,-s)
     glVertex3f(-s,0,-s);   glVertex3f(s,0,-s);   glVertex3f(s,0, s);   glVertex3f(-s,0, s)
@@ -125,101 +161,112 @@ def _draw_cubo(s=_LADO):
     glVertex3f(s,0, s);    glVertex3f(s,0,-s);   glVertex3f(s,s*2,-s); glVertex3f(s,s*2, s)
     glEnd()
 
+
 def _draw_objetos():
     for obj in _OBJETOS:
         glPushMatrix()
         glTranslatef(obj["x"],0.0,obj["z"])
-        spin = _anim_obj.get(obj["id"],0.0)
-        if spin > 0.0:
+        spin=_anim_obj.get(obj["id"],0.0)
+        if spin>0.0:
             glRotatef(spin*360.0,0,1,0)
         glDisable(GL_LIGHTING)
-        r,g,b = obj["color"]
-        # Resaltar los objetivos activos
-        if obj["id"] == _obj_p1:
+        r,g,b=obj["color"]
+        bright=0.22 if (not state.nivel_completado and obj["id"] not in (_obj_p1,_obj_p2)) else 0.0
+        if not state.nivel_completado and obj["id"]==_obj_p1:
             glColor3f(min(r+0.18,1),min(g+0.18,1),min(b+0.18,1))
-        elif obj["id"] == _obj_p2:
+        elif not state.nivel_completado and obj["id"]==_obj_p2:
             glColor3f(min(r+0.12,1),min(g+0.12,1),min(b+0.12,1))
         else:
             glColor3f(r,g,b)
-        forma = obj["forma"]
-        if forma == "cubo":
-            _draw_cubo()
-        elif forma == "esfera":
-            q=gluNewQuadric(); glTranslatef(0,0.9,0); gluSphere(q,0.9,18,18); gluDeleteQuadric(q)
-        elif forma == "cilindro":
-            q=gluNewQuadric()
-            gluCylinder(q,0.55,0.55,1.8,14,3)
-            glPushMatrix(); glRotatef(180,1,0,0); gluDisk(q,0,0.55,14,1); glPopMatrix()
-            glPushMatrix(); glTranslatef(0,0,1.8); gluDisk(q,0,0.55,14,1); glPopMatrix()
-            gluDeleteQuadric(q)
+        if obj["forma"]=="cubo":
+            _draw_cubo(_LADO)
+        else:
+            q=gluNewQuadric(); glTranslatef(0,1.0,0); gluSphere(q,1.0,18,18); gluDeleteQuadric(q)
         glEnable(GL_LIGHTING)
         glPopMatrix()
 
 
-# ── HUD extendido para nivel 1 (dos instrucciones) ───────────
-def _draw_hud_nivel1():
-    from niveles.hud import _enter_2d, _leave_2d, _txt
-    from OpenGL.GLUT import GLUT_BITMAP_HELVETICA_18, GLUT_BITMAP_HELVETICA_12
-    w,h = _enter_2d()
+def _draw_hud():
+    from OpenGL.GLUT import (GLUT_BITMAP_HELVETICA_18, GLUT_BITMAP_HELVETICA_12,
+                              glutBitmapCharacter, glutGet,
+                              GLUT_WINDOW_WIDTH, GLUT_WINDOW_HEIGHT)
+    w=glutGet(GLUT_WINDOW_WIDTH); h=glutGet(GLUT_WINDOW_HEIGHT)
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity()
+    from OpenGL.GLU import gluOrtho2D
+    gluOrtho2D(0,w,0,h)
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
+    glDisable(GL_LIGHTING); glDisable(GL_DEPTH_TEST)
 
-    # Barra superior
-    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA)
-    glColor4f(0,0,0,0.55)
-    glBegin(GL_QUADS)
-    glVertex2f(0,h); glVertex2f(w,h); glVertex2f(w,h-52); glVertex2f(0,h-52)
-    glEnd(); glDisable(GL_BLEND)
+    def txt(x,y,s,font,col):
+        glColor3fv(col); glRasterPos2f(x,y)
+        for c in s: glutBitmapCharacter(font,ord(c))
 
-    _txt(10,h-20,"NIVEL 1 — Valle de los Colores",GLUT_BITMAP_HELVETICA_18,(1.0,0.85,0.20))
-    _txt(w-220,h-20,f"J1: {state.score_p1}   J2: {state.score_p2}",
-         GLUT_BITMAP_HELVETICA_18,(0.90,0.90,1.00))
+    def panel(x,y,pw,ph,r,g,b,a=0.70):
+        glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA)
+        glColor4f(r,g,b,a)
+        glBegin(GL_QUADS)
+        glVertex2f(x,y); glVertex2f(x+pw,y)
+        glVertex2f(x+pw,y+ph); glVertex2f(x,y+ph)
+        glEnd(); glDisable(GL_BLEND)
 
-    # Instrucción J1 (rojo, izquierda)
-    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA)
-    glColor4f(0.55,0.05,0.05,0.70)
-    glBegin(GL_QUADS)
-    glVertex2f(0,h-52); glVertex2f(300,h-52); glVertex2f(300,h-90); glVertex2f(0,h-90)
-    glEnd(); glDisable(GL_BLEND)
-    _txt(8,h-68, getattr(state,"hud_msg",""),  GLUT_BITMAP_HELVETICA_18,(1.0,0.55,0.55))
+    # -- Pantalla de resultado de nivel --
+    if state.mostrar_resultado:
+        panel(w//2-300,h//2-120,600,240,0,0,0,0.85)
+        txt(w//2-210,h//2+80,"NIVEL 1 COMPLETADO!",GLUT_BITMAP_HELVETICA_18,(0.95,0.85,0.20))
+        txt(w//2-200,h//2+50,
+            "J1: "+str(state.nivel_score_p1)+" pts     J2: "+str(state.nivel_score_p2)+" pts",
+            GLUT_BITMAP_HELVETICA_18,(0.90,0.90,1.00))
+        g_str="JUGADOR "+str(state.nivel_ganador)+" llego primero!"
+        col=(0.90,0.20,0.20) if state.nivel_ganador==1 else (0.20,0.40,0.95)
+        txt(w//2-160,h//2+15,g_str,GLUT_BITMAP_HELVETICA_18,col)
+        txt(w//2-180,h//2-20,
+            "Total acumulado - J1: "+str(state.score_p1)+"   J2: "+str(state.score_p2),
+            GLUT_BITMAP_HELVETICA_12,(0.80,0.80,0.80))
+        txt(w//2-140,h//2-55,"Pasando al Nivel 2...",GLUT_BITMAP_HELVETICA_12,(0.55,0.90,0.55))
+        glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)
+        glMatrixMode(GL_PROJECTION); glPopMatrix()
+        glMatrixMode(GL_MODELVIEW);  glPopMatrix()
+        return
 
-    # Instrucción J2 (azul, derecha)
-    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA)
-    glColor4f(0.05,0.10,0.55,0.70)
-    glBegin(GL_QUADS)
-    glVertex2f(w-300,h-52); glVertex2f(w,h-52); glVertex2f(w,h-90); glVertex2f(w-300,h-90)
-    glEnd(); glDisable(GL_BLEND)
-    _txt(w-295,h-68, getattr(state,"hud_msg2",""), GLUT_BITMAP_HELVETICA_18,(0.55,0.75,1.0))
+    # -- HUD normal --
+    panel(0,h-52,w,52,0,0,0,0.55)
+    txt(10,h-22,"NIVEL 1 - Valle de los Colores",GLUT_BITMAP_HELVETICA_18,(1.0,0.85,0.20))
+    txt(w-230,h-22,"J1: "+str(state.nivel_score_p1)+"/20   J2: "+str(state.nivel_score_p2)+"/20",
+        GLUT_BITMAP_HELVETICA_18,(0.90,0.90,1.00))
+    txt(w//2-200,h-44,"Total: J1="+str(state.score_p1)+"  J2="+str(state.score_p2),
+        GLUT_BITMAP_HELVETICA_12,(0.65,0.65,0.65))
+
+    # Instruccion J1
+    panel(0,h-92,310,38,0.50,0.05,0.05,0.75)
+    txt(8,h-72,state.hud_msg,GLUT_BITMAP_HELVETICA_18,(1.0,0.70,0.70))
+
+    # Instruccion J2
+    panel(w-310,h-92,310,38,0.05,0.10,0.55,0.75)
+    txt(w-305,h-72,state.hud_msg2,GLUT_BITMAP_HELVETICA_18,(0.70,0.80,1.00))
 
     # Feedback J1
-    if getattr(state,"hud_fb_p1",""):
+    if state.hud_fb_p1:
         col=(0.20,1.0,0.30) if "orrecto" in state.hud_fb_p1 else (1.0,0.35,0.35)
-        _txt(30, h//2, state.hud_fb_p1, GLUT_BITMAP_HELVETICA_18, col)
+        txt(20,h//2,state.hud_fb_p1,GLUT_BITMAP_HELVETICA_18,col)
     # Feedback J2
-    if getattr(state,"hud_fb_p2",""):
+    if state.hud_fb_p2:
         col=(0.20,1.0,0.30) if "orrecto" in state.hud_fb_p2 else (1.0,0.35,0.35)
-        _txt(w-280, h//2, state.hud_fb_p2, GLUT_BITMAP_HELVETICA_18, col)
+        txt(w-250,h//2,state.hud_fb_p2,GLUT_BITMAP_HELVETICA_18,col)
 
     # Etiquetas inferiores
-    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA)
-    glColor4f(0.50,0.05,0.05,0.70)
-    glBegin(GL_QUADS); glVertex2f(0,0); glVertex2f(200,0); glVertex2f(200,36); glVertex2f(0,36); glEnd()
-    glColor4f(0.05,0.10,0.55,0.70)
-    glBegin(GL_QUADS); glVertex2f(w-200,0); glVertex2f(w,0); glVertex2f(w,36); glVertex2f(w-200,36); glEnd()
-    glDisable(GL_BLEND)
-    _txt(8,14,"J1  WASD — mover",GLUT_BITMAP_HELVETICA_12,(1.0,0.75,0.75))
-    _txt(w-195,14,"J2  Flechas — mover",GLUT_BITMAP_HELVETICA_12,(0.75,0.85,1.0))
-    _txt(w//2-80,14,"ESC: lobby",GLUT_BITMAP_HELVETICA_12,(0.55,0.55,0.55))
+    panel(0,0,200,36,0.50,0.05,0.05,0.70)
+    panel(w-200,0,200,36,0.05,0.10,0.55,0.70)
+    txt(8,14,"J1  WASD - mover",GLUT_BITMAP_HELVETICA_12,(1.0,0.75,0.75))
+    txt(w-195,14,"J2  Flechas - mover",GLUT_BITMAP_HELVETICA_12,(0.75,0.85,1.0))
+    txt(w//2-140,14,"ESC: confirmar salida al lobby",GLUT_BITMAP_HELVETICA_12,(0.55,0.55,0.55))
 
-    _leave_2d()
+    glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)
+    glMatrixMode(GL_PROJECTION); glPopMatrix()
+    glMatrixMode(GL_MODELVIEW);  glPopMatrix()
 
 
-# ── API pública ───────────────────────────────────────────────
+# -- API publica --------------------------------------------------
 def init():
-    # Inicializar campos de feedback individuales en state
-    if not hasattr(state,"hud_msg2"):    state.hud_msg2=""
-    if not hasattr(state,"hud_fb_p1"):   state.hud_fb_p1=""
-    if not hasattr(state,"hud_fb_p2"):   state.hud_fb_p2=""
-    if not hasattr(state,"hud_fb_timer_p1"): state.hud_fb_timer_p1=0
-    if not hasattr(state,"hud_fb_timer_p2"): state.hud_fb_timer_p2=0
     glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING); glEnable(GL_LIGHT0)
     glEnable(GL_COLOR_MATERIAL); glColorMaterial(GL_FRONT,GL_AMBIENT_AND_DIFFUSE)
     glShadeModel(GL_SMOOTH)
@@ -228,30 +275,41 @@ def init():
     glLightfv(GL_LIGHT0,GL_DIFFUSE,[0.80,0.80,0.80,1.0])
     _reset_nivel()
 
+
 def reset():
-    init()
+    _reset_nivel()
+
 
 def display(draw_p1,draw_p2):
     glClearColor(0.88,0.88,0.88,1.0)
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
     camera.apply(state.WIN_W,state.WIN_H)
     _draw_floor(); _draw_objetos()
-    players.draw_players(draw_p1,draw_p2)
-    _draw_hud_nivel1()
+    if not state.mostrar_resultado:
+        players.draw_players(draw_p1,draw_p2)
+    _draw_hud()
     glutSwapBuffers()
 
+
 def update(_v):
-    players.update(); _check_colisiones()
-    for oid in _anim_obj:
-        if _anim_obj[oid]>0.0: _anim_obj[oid]=max(0.0,_anim_obj[oid]-0.025)
-    for attr in ("hud_fb_timer_p1","hud_fb_timer_p2"):
-        if not hasattr(state,attr): setattr(state,attr,0)
-    if state.hud_fb_timer_p1>0:
-        state.hud_fb_timer_p1-=1
-        if state.hud_fb_timer_p1==0: state.hud_fb_p1=""
-    if state.hud_fb_timer_p2>0:
-        state.hud_fb_timer_p2-=1
-        if state.hud_fb_timer_p2==0: state.hud_fb_p2=""
+    global _cooldown_p1,_cooldown_p2
+    if not state.mostrar_resultado:
+        players.update()
+        _check_colisiones()
+        for oid in _anim_obj:
+            if _anim_obj[oid]>0.0: _anim_obj[oid]=max(0.0,_anim_obj[oid]-0.025)
+        if state.hud_fb_timer_p1>0:
+            state.hud_fb_timer_p1-=1
+            if state.hud_fb_timer_p1==0: state.hud_fb_p1=""
+        if state.hud_fb_timer_p2>0:
+            state.hud_fb_timer_p2-=1
+            if state.hud_fb_timer_p2==0: state.hud_fb_p2=""
+    else:
+        # Countdown para pasar al nivel 2
+        if state.resultado_timer>0:
+            state.resultado_timer-=1
+        # La transicion la maneja main_arcade via nivel_completado
+
 
 def keyboard(key,_x,_y):
     if key==b'w': state.k_w=True

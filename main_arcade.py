@@ -99,7 +99,7 @@ selected_p2  = 1   # J2
 _lobby_fase  = 0
 estado_juego = -1          # -1 = lobby,  0..5 = personaje activo
 estado_nivel = 0           # 0 = sin nivel, 1..3 = nivel activo
-_nivel_siguiente = 1       # nivel al que entrar cuando se pulse N
+_confirmando_salida = False # True cuando se muestra dialogo de salida en nivel
 _initialized = [False] * N
 
 # Animación del carrusel
@@ -482,7 +482,7 @@ def _draw_lobby_hud():
     elif _lobby_fase == 2:
         hint = "A/D : navegar    ESPACIO : confirmar personaje de J2    ESC : volver"
     else:
-        hint = "N : jugar nivel    1 : cambiar J1    2 : cambiar J2    ENTER : modo individual    ESC : salir"
+        hint = "ENTER : jugar Nivel 1    1 : cambiar J1    2 : cambiar J2    ESC : salir"
     _txt(WIN_W//2 - len(hint)*3, 14, hint,
          GLUT_BITMAP_HELVETICA_12, (0.78, 0.78, 0.78))
 
@@ -640,12 +640,52 @@ def _get_draw_fns():
     return fn1, fn2
 
 
+def _draw_confirm_exit():
+    """Superpone el dialogo de confirmacion de salida sobre el nivel."""
+    from OpenGL.GL  import (glMatrixMode,glPushMatrix,glLoadIdentity,
+                             glDisable,glEnable,GL_LIGHTING,GL_DEPTH_TEST,
+                             glColor4f,glBegin,glEnd,glVertex2f,GL_QUADS,
+                             glColor3f,glRasterPos2f,GL_BLEND,GL_SRC_ALPHA,
+                             GL_ONE_MINUS_SRC_ALPHA,glBlendFunc)
+    from OpenGL.GLU  import gluOrtho2D
+    from OpenGL.GLUT import (glutGet,GLUT_WINDOW_WIDTH,GLUT_WINDOW_HEIGHT,
+                              GLUT_BITMAP_HELVETICA_18,GLUT_BITMAP_HELVETICA_12,
+                              glutBitmapCharacter)
+    w=glutGet(GLUT_WINDOW_WIDTH); h=glutGet(GLUT_WINDOW_HEIGHT)
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity()
+    gluOrtho2D(0,w,0,h)
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
+    glDisable(GL_LIGHTING); glDisable(GL_DEPTH_TEST)
+    cx=w//2; cy=h//2
+    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA)
+    glColor4f(0,0,0,0.80)
+    glBegin(GL_QUADS)
+    glVertex2f(cx-260,cy-90); glVertex2f(cx+260,cy-90)
+    glVertex2f(cx+260,cy+90); glVertex2f(cx-260,cy+90)
+    glEnd(); glDisable(GL_BLEND)
+    def txt(x,y,s,font,col):
+        glColor3f(*col); glRasterPos2f(x,y)
+        for c in s: glutBitmapCharacter(font,ord(c))
+    txt(cx-190,cy+55,"Salir al lobby?",GLUT_BITMAP_HELVETICA_18,(0.95,0.85,0.20))
+    txt(cx-230,cy+20,"Los puntajes acumulados se perderan.",
+        GLUT_BITMAP_HELVETICA_12,(0.88,0.70,0.70))
+    txt(cx-195,cy-10,"ENTER / S : confirmar salida",
+        GLUT_BITMAP_HELVETICA_12,(1.00,0.55,0.55))
+    txt(cx-165,cy-35,"Cualquier otra tecla : continuar",
+        GLUT_BITMAP_HELVETICA_12,(0.55,0.90,0.55))
+    glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)
+    glMatrixMode(GL_PROJECTION); glPopMatrix()
+    glMatrixMode(GL_MODELVIEW);  glPopMatrix()
+
+
 def display_maestro():
     global estado_nivel
     if estado_nivel > 0:
         mod = MODULOS_NIVELES[estado_nivel]
         draw_p1, draw_p2 = _get_draw_fns()
         mod.display(draw_p1, draw_p2)
+        if _confirmando_salida:
+            _draw_confirm_exit()
     elif estado_juego == -1:
         _draw_lobby_3d()
         _draw_lobby_hud()
@@ -659,22 +699,33 @@ def display_maestro():
 
 def keyboard_maestro(key, x, y):
     global estado_juego, estado_nivel, _lobby_fase, selected_p1, selected_p2
-    global _lob_target, _nivel_siguiente
+    global _lob_target, _confirmando_salida
+
+    # -- Dialogo de confirmacion de salida dentro de un nivel --
+    if _confirmando_salida and estado_nivel > 0:
+        if key in (b's', b'S', b'y', b'Y', b'\r', b'\n'):
+            from niveles import state as ns
+            ns.score_p1=0; ns.score_p2=0
+            ns.nivel_score_p1=0; ns.nivel_score_p2=0
+            _confirmando_salida = False
+            estado_nivel = 0
+            arcade_init()
+        else:
+            _confirmando_salida = False
+        glutPostRedisplay()
+        return
 
     if key == b'\x1b':
         if estado_nivel > 0:
-            estado_nivel = 0
-            arcade_init()
+            _confirmando_salida = True
             glutPostRedisplay()
         elif estado_juego == -1:
-            if _lobby_fase == 0:
+            if _lobby_fase in (0, 1):
                 sys.exit(0)
             elif _lobby_fase == 2:
-                _lobby_fase = 1   # J2 vuelve atrás
+                _lobby_fase = 1
             elif _lobby_fase == 3:
                 _lobby_fase = 2
-            else:
-                sys.exit(0)
             glutPostRedisplay()
         else:
             estado_juego = -1
@@ -687,56 +738,45 @@ def keyboard_maestro(key, x, y):
         return
 
     if estado_juego == -1:
-        # ── Fase 0: instrucciones ─────────────────────────────
         if _lobby_fase == 0:
             _lobby_fase = 1
             glutPostRedisplay()
             return
 
-        # ── Fase 1: J1 elige con Flechas + ENTER ─────────────
         elif _lobby_fase == 1:
             if key in (b'\r', b'\n'):
-                _lobby_fase = 2       # J1 confirmado → ahora J2
-                # Centrar carrusel en selección de J2
-                _lob_target = selected_p2 * SPACING
-            glutPostRedisplay()
-            return
-
-        # ── Fase 2: J2 elige con A/D + ESPACIO ───────────────
-        elif _lobby_fase == 2:
-            if key == b' ':          # ESPACIO confirma J2
-                _lobby_fase = 3
-            elif key in (b'a', b'A'):
-                new = selected_p2 - 1
-                if new >= 0:
-                    selected_p2 = new
-                    _lob_target = selected_p2 * SPACING
-            elif key in (b'd', b'D'):
-                new = selected_p2 + 1
-                if new < N:
-                    selected_p2 = new
-                    _lob_target = selected_p2 * SPACING
-            glutPostRedisplay()
-            return
-
-        # ── Fase 3: confirmación ──────────────────────────────
-        elif _lobby_fase == 3:
-            if key in (b'n', b'N'):
-                _activate_nivel(_nivel_siguiente)
-                _nivel_siguiente = (_nivel_siguiente % 3) + 1  # prepara el siguiente
-            elif key in (b'\r', b'\n'):
-                _activate_character(selected_p1)
-            elif key == b'1':
-                _lobby_fase = 1
-                _lob_target = selected_p1 * SPACING
-            elif key == b'2':
                 _lobby_fase = 2
                 _lob_target = selected_p2 * SPACING
             glutPostRedisplay()
             return
+
+        elif _lobby_fase == 2:
+            if key == b' ':
+                _lobby_fase = 3
+            elif key in (b'a', b'A'):
+                new = selected_p2 - 1
+                if new >= 0:
+                    selected_p2 = new; _lob_target = selected_p2 * SPACING
+            elif key in (b'd', b'D'):
+                new = selected_p2 + 1
+                if new < N:
+                    selected_p2 = new; _lob_target = selected_p2 * SPACING
+            glutPostRedisplay()
+            return
+
+        elif _lobby_fase == 3:
+            if key in (b'\r', b'\n'):
+                from niveles import state as ns
+                ns.score_p1=0; ns.score_p2=0
+                _activate_nivel(1)
+            elif key == b'1':
+                _lobby_fase = 1; _lob_target = selected_p1 * SPACING
+            elif key == b'2':
+                _lobby_fase = 2; _lob_target = selected_p2 * SPACING
+            glutPostRedisplay()
+            return
     else:
         MODULOS_PERSONAJES[estado_juego].keyboard(key, x, y)
-
 
 def keyboard_up_maestro(key, x, y):
     if estado_nivel > 0:
@@ -812,8 +852,28 @@ def motion_maestro(x, y):
 
 
 def timer_maestro(value):
+    global estado_nivel
     if estado_nivel > 0:
         MODULOS_NIVELES[estado_nivel].update(value)
+        # Transicion automatica al siguiente nivel cuando resultado_timer llega a 0
+        from niveles import state as ns
+        if ns.mostrar_resultado and ns.resultado_timer == 0:
+            siguiente = estado_nivel + 1
+            if siguiente <= 3:
+                estado_nivel = siguiente
+                mod = MODULOS_NIVELES[siguiente]
+                if not _nivel_initialized[siguiente]:
+                    try: mod.init()
+                    except Exception as e: print(f"[timer] init nivel {siguiente}: {e}")
+                    _nivel_initialized[siguiente] = True
+                else:
+                    try: mod.reset()
+                    except Exception as e: print(f"[timer] reset nivel {siguiente}: {e}")
+                ns.mostrar_resultado = False
+            else:
+                # Terminaron los 3 niveles -> volver al lobby
+                estado_nivel = 0
+                arcade_init()
     elif estado_juego != -1:
         if hasattr(MODULOS_PERSONAJES[estado_juego], 'update'):
             MODULOS_PERSONAJES[estado_juego].update(value)
