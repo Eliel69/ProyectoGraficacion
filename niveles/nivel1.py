@@ -10,16 +10,16 @@ from niveles     import state, camera, players
 
 # -- 10 colores, 2 formas (5 cubos + 5 esferas) dispersos --
 _OBJETOS = [
-    {"id":0,  "nombre":"Rojo",       "color":(0.90,0.10,0.10), "x":-8.0, "z":-6.0, "forma":"cubo"},
-    {"id":1,  "nombre":"Azul",       "color":(0.10,0.25,0.95), "x": 8.0, "z":-6.0, "forma":"esfera"},
-    {"id":2,  "nombre":"Amarillo",   "color":(0.95,0.88,0.05), "x":-8.0, "z": 6.0, "forma":"cubo"},
-    {"id":3,  "nombre":"Verde",      "color":(0.10,0.80,0.20), "x": 8.0, "z": 6.0, "forma":"esfera"},
-    {"id":4,  "nombre":"Naranja",    "color":(0.98,0.52,0.05), "x": 0.0, "z":-9.0, "forma":"cubo"},
-    {"id":5,  "nombre":"Morado",     "color":(0.65,0.10,0.90), "x": 0.0, "z": 9.0, "forma":"esfera"},
-    {"id":6,  "nombre":"Rosa",       "color":(0.98,0.45,0.75), "x":-4.0, "z": 0.0, "forma":"cubo"},
-    {"id":7,  "nombre":"Celeste",    "color":(0.30,0.85,0.98), "x": 4.0, "z": 0.0, "forma":"esfera"},
-    {"id":8,  "nombre":"Cafe",       "color":(0.60,0.35,0.10), "x":-6.0, "z":-2.0, "forma":"cubo"},
-    {"id":9,  "nombre":"Blanco",     "color":(0.95,0.95,0.95), "x": 6.0, "z": 2.0, "forma":"esfera"},
+    {"id":0,  "nombre":"Rojo",       "color":(0.90,0.10,0.10), "x":-9.0, "z":-7.0, "forma":"cubo"},
+    {"id":1,  "nombre":"Azul",       "color":(0.10,0.25,0.95), "x": 9.0, "z":-7.0, "forma":"esfera"},
+    {"id":2,  "nombre":"Amarillo",   "color":(0.95,0.88,0.05), "x": 6.0, "z": 7.0, "forma":"cubo"},
+    {"id":3,  "nombre":"Verde",      "color":(0.10,0.80,0.20), "x":-6.0, "z": 7.0, "forma":"esfera"},
+    {"id":4,  "nombre":"Naranja",    "color":(0.98,0.52,0.05), "x": 2.0, "z":-9.0, "forma":"esfera"},
+    {"id":5,  "nombre":"Morado",     "color":(0.65,0.10,0.90), "x":-2.0, "z": 9.0, "forma":"cubo"},
+    {"id":6,  "nombre":"Rosa",       "color":(0.98,0.45,0.75), "x": 9.0, "z": 2.0, "forma":"cubo"},
+    {"id":7,  "nombre":"Celeste",    "color":(0.30,0.85,0.98), "x":-9.0, "z": 2.0, "forma":"esfera"},
+    {"id":8,  "nombre":"Cafe",       "color":(0.60,0.35,0.10), "x":-4.0, "z":-5.0, "forma":"esfera"},
+    {"id":9,  "nombre":"Blanco",     "color":(0.95,0.95,0.95), "x": 4.0, "z": 5.0, "forma":"cubo"},
 ]
 
 _RADIO_OBJ = 1.0
@@ -31,6 +31,7 @@ _obj_p2 = 1
 _anim_obj = {}
 _cooldown_p1 = 0
 _cooldown_p2 = 0
+_mostrando_intro = True   # True = mostrar instrucciones antes de jugar
 
 
 def _reset_posiciones():
@@ -53,8 +54,10 @@ def _reset_nivel():
     state.resultado_timer=0
     state.hud_fb_p1=""; state.hud_fb_timer_p1=0
     state.hud_fb_p2=""; state.hud_fb_timer_p2=0
+    global _mostrando_intro
     _anim_obj={o["id"]:0.0 for o in _OBJETOS}
     _cooldown_p1=_cooldown_p2=0
+    _mostrando_intro=True
     _nueva_p1(); _nueva_p2()
 
 
@@ -77,7 +80,7 @@ def _dist2d(ax,az,bx,bz):
 
 def _check_colisiones():
     global _cooldown_p1,_cooldown_p2
-    if state.nivel_completado:
+    if state.nivel_completado or _mostrando_intro:
         return
 
     if _cooldown_p1>0:
@@ -92,7 +95,7 @@ def _check_colisiones():
                 else:
                     state.nivel_score_p1=max(0,state.nivel_score_p1-1)
                     state.hud_fb_p1="Ups! -1"; state.hud_fb_timer_p1=70
-                _cooldown_p1=55
+                _cooldown_p1=110
                 _nueva_p1()
                 _check_meta()
                 break
@@ -109,7 +112,7 @@ def _check_colisiones():
                 else:
                     state.nivel_score_p2=max(0,state.nivel_score_p2-1)
                     state.hud_fb_p2="Ups! -1"; state.hud_fb_timer_p2=70
-                _cooldown_p2=55
+                _cooldown_p2=110
                 _nueva_p2()
                 _check_meta()
                 break
@@ -209,6 +212,36 @@ def _draw_hud():
         glVertex2f(x+pw,y+ph); glVertex2f(x,y+ph)
         glEnd(); glDisable(GL_BLEND)
 
+    # -- Pantalla de instrucciones (intro) --
+    if _mostrando_intro:
+        panel(w//2-310,h//2-170,620,340,0.0,0.0,0.0,0.88)
+        txt(w//2-200,h//2+145,"NIVEL 1 - Valle de los Colores",
+            GLUT_BITMAP_HELVETICA_18,(1.0,0.85,0.20))
+        lineas = [
+            ("OBJETIVO:", GLUT_BITMAP_HELVETICA_18, (0.95,0.90,0.40)),
+            ("Cada jugador tiene su propia instruccion en pantalla.", GLUT_BITMAP_HELVETICA_12, (0.90,0.90,0.90)),
+            ("Camina hacia la figura del color y forma indicados.", GLUT_BITMAP_HELVETICA_12, (0.90,0.90,0.90)),
+            ("", None, None),
+            ("+2 puntos por tocar la figura correcta.", GLUT_BITMAP_HELVETICA_12, (0.40,1.00,0.40)),
+            ("-1 punto si tocas una figura equivocada.", GLUT_BITMAP_HELVETICA_12, (1.00,0.45,0.45)),
+            ("El primero en llegar a 20 puntos gana el nivel.", GLUT_BITMAP_HELVETICA_12, (0.90,0.90,0.90)),
+            ("", None, None),
+            ("CONTROLES:", GLUT_BITMAP_HELVETICA_18, (0.95,0.90,0.40)),
+            ("J1 (ROJO):  W/A/S/D para moverse", GLUT_BITMAP_HELVETICA_12, (1.00,0.65,0.65)),
+            ("J2 (AZUL):  Flechas para moverse", GLUT_BITMAP_HELVETICA_12, (0.65,0.75,1.00)),
+        ]
+        base_y = h//2+105
+        for lbl,font,col in lineas:
+            if font: txt(w//2-260, base_y, lbl, font, col)
+            base_y -= 22
+        txt(w//2-195, h//2-175,
+            "Presiona CUALQUIER TECLA para empezar",
+            GLUT_BITMAP_HELVETICA_12,(0.55,0.55,0.55))
+        glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)
+        glMatrixMode(GL_PROJECTION); glPopMatrix()
+        glMatrixMode(GL_MODELVIEW);  glPopMatrix()
+        return
+
     # -- Pantalla de resultado de nivel --
     if state.mostrar_resultado:
         panel(w//2-300,h//2-120,600,240,0,0,0,0.85)
@@ -294,7 +327,8 @@ def display(draw_p1,draw_p2):
 def update(_v):
     global _cooldown_p1,_cooldown_p2
     if not state.mostrar_resultado:
-        players.update()
+        if not _mostrando_intro:
+            players.update()
         _check_colisiones()
         for oid in _anim_obj:
             if _anim_obj[oid]>0.0: _anim_obj[oid]=max(0.0,_anim_obj[oid]-0.025)
@@ -312,6 +346,9 @@ def update(_v):
 
 
 def keyboard(key,_x,_y):
+    global _mostrando_intro
+    if _mostrando_intro:
+        _mostrando_intro=False; return
     if key==b'w': state.k_w=True
     elif key==b's': state.k_s=True
     elif key==b'a': state.k_a=True
@@ -324,6 +361,9 @@ def keyboard_up(key,_x,_y):
     elif key==b'd': state.k_d=False
 
 def special_keys(key,_x,_y):
+    global _mostrando_intro
+    if _mostrando_intro:
+        _mostrando_intro=False; return
     if key==GLUT_KEY_UP:    state.k_up=True
     elif key==GLUT_KEY_DOWN:  state.k_down=True
     elif key==GLUT_KEY_LEFT:  state.k_left=True

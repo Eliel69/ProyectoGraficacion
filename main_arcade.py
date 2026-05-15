@@ -465,12 +465,9 @@ def _draw_lobby_hud():
         _txt(cx-255, WIN_H//2-12,
              "Presiona  2  para que J2 vuelva a elegir",
              GLUT_BITMAP_HELVETICA_12, (0.55, 0.75, 1.00))
-        _txt(cx-200, WIN_H//2-38,
-             "Presiona  N  para jugar  (Nivel 1→2→3)",
+        _txt(cx-220, WIN_H//2-38,
+             "Presiona  ENTER  para empezar a jugar  (Nivel 1 -> 2 -> 3)",
              GLUT_BITMAP_HELVETICA_12, (0.40, 0.95, 0.55))
-        _txt(cx-170, WIN_H//2-58,
-             "Presiona  ENTER  para jugar en modo individual",
-             GLUT_BITMAP_HELVETICA_12, (0.65, 0.65, 0.65))
         _draw_lobby_dots(selected_p1, selected_p2, (0.90,0.10,0.10), (0.10,0.35,0.95))
 
     # ── Barra de controles inferior ───────────────────────────
@@ -701,8 +698,34 @@ def keyboard_maestro(key, x, y):
     global estado_juego, estado_nivel, _lobby_fase, selected_p1, selected_p2
     global _lob_target, _confirmando_salida
 
-    # -- Dialogo de confirmacion de salida dentro de un nivel --
-    if _confirmando_salida and estado_nivel > 0:
+    # ── ESC: siempre tiene prioridad maxima ───────────────────
+    if key == b'\x1b':
+        if _confirmando_salida:
+            # ESC cancela el dialogo de salida
+            _confirmando_salida = False
+            glutPostRedisplay()
+            return
+        if estado_nivel > 0:
+            _confirmando_salida = True
+            glutPostRedisplay()
+            return
+        if estado_juego == -1:
+            if _lobby_fase in (0, 1):
+                sys.exit(0)
+            elif _lobby_fase == 2:
+                _lobby_fase = 1
+            elif _lobby_fase == 3:
+                _lobby_fase = 2
+            glutPostRedisplay()
+            return
+        # en modo personaje individual -> volver al lobby
+        estado_juego = -1
+        arcade_init()
+        glutPostRedisplay()
+        return
+
+    # ── Dialogo de confirmacion activo: solo S/ENTER aceptan ─
+    if _confirmando_salida:
         if key in (b's', b'S', b'y', b'Y', b'\r', b'\n'):
             from niveles import state as ns
             ns.score_p1=0; ns.score_p2=0
@@ -715,28 +738,14 @@ def keyboard_maestro(key, x, y):
         glutPostRedisplay()
         return
 
-    if key == b'\x1b':
-        if estado_nivel > 0:
-            _confirmando_salida = True
-            glutPostRedisplay()
-        elif estado_juego == -1:
-            if _lobby_fase in (0, 1):
-                sys.exit(0)
-            elif _lobby_fase == 2:
-                _lobby_fase = 1
-            elif _lobby_fase == 3:
-                _lobby_fase = 2
-            glutPostRedisplay()
-        else:
-            estado_juego = -1
-            arcade_init()
-            glutPostRedisplay()
-        return
-
+    # ── Dentro de un nivel: delegar al nivel (sin ENTER libre) ─
     if estado_nivel > 0:
-        MODULOS_NIVELES[estado_nivel].keyboard(key, x, y)
+        # ENTER no debe llegar al nivel (evita salidas accidentales)
+        if key not in (b'\r', b'\n'):
+            MODULOS_NIVELES[estado_nivel].keyboard(key, x, y)
         return
 
+    # ── Lobby ─────────────────────────────────────────────────
     if estado_juego == -1:
         if _lobby_fase == 0:
             _lobby_fase = 1

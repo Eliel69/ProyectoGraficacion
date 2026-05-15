@@ -23,6 +23,7 @@ _FORMAS = [
 _RADIO_OBJ=1.0; _RADIO_JUG=0.5; _LADO=1.1
 _forma_p1=0; _forma_p2=1
 _anim_forma={}; _cooldown_p1=0; _cooldown_p2=0
+_mostrando_intro = True
 
 
 def _reset_posiciones():
@@ -42,8 +43,10 @@ def _reset_nivel():
     state.mostrar_resultado=False; state.resultado_timer=0
     state.hud_fb_p1=""; state.hud_fb_timer_p1=0
     state.hud_fb_p2=""; state.hud_fb_timer_p2=0
+    global _mostrando_intro
     _anim_forma={f["id"]:0 for f in _FORMAS}
     _cooldown_p1=_cooldown_p2=0
+    _mostrando_intro=True
     _nueva_p1(); _nueva_p2()
 
 
@@ -66,7 +69,7 @@ def _dist2d(ax,az,bx,bz):
 
 def _check_colisiones():
     global _cooldown_p1,_cooldown_p2
-    if state.nivel_completado: return
+    if state.nivel_completado or _mostrando_intro: return
 
     if _cooldown_p1>0: _cooldown_p1-=1
     else:
@@ -79,7 +82,7 @@ def _check_colisiones():
                 else:
                     state.nivel_score_p1=max(0,state.nivel_score_p1-1)
                     state.hud_fb_p1="Ups! -1"; state.hud_fb_timer_p1=70
-                _cooldown_p1=55; _nueva_p1(); _check_meta(); break
+                _cooldown_p1=120; _nueva_p1(); _check_meta(); break
 
     if _cooldown_p2>0: _cooldown_p2-=1
     else:
@@ -92,7 +95,7 @@ def _check_colisiones():
                 else:
                     state.nivel_score_p2=max(0,state.nivel_score_p2-1)
                     state.hud_fb_p2="Ups! -1"; state.hud_fb_timer_p2=70
-                _cooldown_p2=55; _nueva_p2(); _check_meta(); break
+                _cooldown_p2=120; _nueva_p2(); _check_meta(); break
 
 
 def _check_meta():
@@ -213,6 +216,53 @@ def _draw_formas():
                 glVertex3f(r3*math.cos(a),0,r3*math.sin(a))
                 glVertex3f(r3*math.cos(a),ht,r3*math.sin(a))
             glEnd()
+        # -- Aristas negras sobre la forma (solo formas con aristas) --
+        if t in ("cubo","piramide","prisma"):
+            glLineWidth(2.0)
+            glColor3f(0.0,0.0,0.0)
+            glPolygonOffset(1.0,1.0)
+            glEnable(GL_POLYGON_OFFSET_LINE)
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+            if t=="cubo":
+                s2=_LADO
+                glBegin(GL_QUADS)
+                for verts2 in [
+                    [(-s2,s2*2,s2),(s2,s2*2,s2),(s2,s2*2,-s2),(-s2,s2*2,-s2)],
+                    [(-s2,0,-s2),(s2,0,-s2),(s2,0,s2),(-s2,0,s2)],
+                    [(-s2,0,s2),(s2,0,s2),(s2,s2*2,s2),(-s2,s2*2,s2)],
+                    [(s2,0,-s2),(-s2,0,-s2),(-s2,s2*2,-s2),(s2,s2*2,-s2)],
+                    [(-s2,0,-s2),(-s2,0,s2),(-s2,s2*2,s2),(-s2,s2*2,-s2)],
+                    [(s2,0,s2),(s2,0,-s2),(s2,s2*2,-s2),(s2,s2*2,s2)],
+                ]:
+                    for v2 in verts2: glVertex3fv(v2)
+                glEnd()
+            elif t=="piramide":
+                h3=2.0; b3=0.9
+                bases2=[(-b3,0,-b3),(b3,0,-b3),(b3,0,b3),(-b3,0,b3)]
+                apex2=(0,h3,0)
+                glBegin(GL_TRIANGLES)
+                for i2 in range(4):
+                    for v2 in [bases2[i2],bases2[(i2+1)%4],apex2]: glVertex3fv(v2)
+                glEnd()
+                glBegin(GL_QUADS)
+                for v2 in bases2: glVertex3fv(v2)
+                glEnd()
+            elif t=="prisma":
+                import math as _m
+                sides2=6; r4=0.75; ht2=1.8
+                glBegin(GL_TRIANGLE_FAN); glVertex3f(0,ht2,0)
+                for i2 in range(sides2+1):
+                    a2=2*_m.pi*i2/sides2; glVertex3f(r4*_m.cos(a2),ht2,r4*_m.sin(a2))
+                glEnd()
+                glBegin(GL_QUAD_STRIP)
+                for i2 in range(sides2+1):
+                    a2=2*_m.pi*i2/sides2
+                    glVertex3f(r4*_m.cos(a2),0,r4*_m.sin(a2))
+                    glVertex3f(r4*_m.cos(a2),ht2,r4*_m.sin(a2))
+                glEnd()
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+            glDisable(GL_POLYGON_OFFSET_LINE)
+            glLineWidth(1.0)
         gluDeleteQuadric(q); glEnable(GL_LIGHTING); glPopMatrix()
 
 
@@ -235,6 +285,36 @@ def _draw_hud():
         glBegin(GL_QUADS)
         glVertex2f(x,y); glVertex2f(x+pw,y); glVertex2f(x+pw,y+ph); glVertex2f(x,y+ph)
         glEnd(); glDisable(GL_BLEND)
+
+    if _mostrando_intro:
+        panel(w//2-310,h//2-170,620,340,0.0,0.0,0.0,0.88)
+        txt(w//2-200,h//2+145,"NIVEL 2 - Bosque de las Formas",
+            GLUT_BITMAP_HELVETICA_18,(1.0,0.85,0.20))
+        lineas = [
+            ("OBJETIVO:", GLUT_BITMAP_HELVETICA_18, (0.95,0.90,0.40)),
+            ("Ahora todos los objetos son del mismo color dorado.", GLUT_BITMAP_HELVETICA_12, (0.90,0.90,0.90)),
+            ("Debes identificarlos por su FORMA, no por su color.", GLUT_BITMAP_HELVETICA_12, (0.90,0.90,0.90)),
+            ("", None, None),
+            ("+2 puntos por tocar la forma correcta.", GLUT_BITMAP_HELVETICA_12, (0.40,1.00,0.40)),
+            ("-1 punto si tocas una forma equivocada.", GLUT_BITMAP_HELVETICA_12, (1.00,0.45,0.45)),
+            ("El primero en llegar a 20 puntos gana el nivel.", GLUT_BITMAP_HELVETICA_12, (0.90,0.90,0.90)),
+            ("", None, None),
+            ("CONTROLES:", GLUT_BITMAP_HELVETICA_18, (0.95,0.90,0.40)),
+            ("J1 (ROJO):  W/A/S/D para moverse", GLUT_BITMAP_HELVETICA_12, (1.00,0.65,0.65)),
+            ("J2 (AZUL):  Flechas para moverse", GLUT_BITMAP_HELVETICA_12, (0.65,0.75,1.00)),
+            ("Puntaje acumulado - J1: "+str(state.score_p1)+"   J2: "+str(state.score_p2), GLUT_BITMAP_HELVETICA_12, (0.75,0.75,0.75)),
+        ]
+        base_y = h//2+105
+        for lbl,font,col in lineas:
+            if font: txt(w//2-260, base_y, lbl, font, col)
+            base_y -= 22
+        txt(w//2-195, h//2-175,
+            "Presiona CUALQUIER TECLA para empezar",
+            GLUT_BITMAP_HELVETICA_12,(0.55,0.55,0.55))
+        glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)
+        glMatrixMode(GL_PROJECTION); glPopMatrix()
+        glMatrixMode(GL_MODELVIEW);  glPopMatrix()
+        return
 
     if state.mostrar_resultado:
         panel(w//2-300,h//2-120,600,240,0,0,0,0.85)
@@ -309,7 +389,8 @@ def display(draw_p1,draw_p2):
 
 def update(_v):
     if not state.mostrar_resultado:
-        players.update(); _check_colisiones()
+        if not _mostrando_intro: players.update()
+        _check_colisiones()
         for fid in _anim_forma:
             if _anim_forma[fid]>0: _anim_forma[fid]-=1
         if state.hud_fb_timer_p1>0:
@@ -322,6 +403,9 @@ def update(_v):
         if state.resultado_timer>0: state.resultado_timer-=1
 
 def keyboard(key,_x,_y):
+    global _mostrando_intro
+    if _mostrando_intro:
+        _mostrando_intro=False; return
     if key==b'w': state.k_w=True
     elif key==b's': state.k_s=True
     elif key==b'a': state.k_a=True
@@ -332,6 +416,9 @@ def keyboard_up(key,_x,_y):
     elif key==b'a': state.k_a=False
     elif key==b'd': state.k_d=False
 def special_keys(key,_x,_y):
+    global _mostrando_intro
+    if _mostrando_intro:
+        _mostrando_intro=False; return
     if key==GLUT_KEY_UP:    state.k_up=True
     elif key==GLUT_KEY_DOWN:  state.k_down=True
     elif key==GLUT_KEY_LEFT:  state.k_left=True
