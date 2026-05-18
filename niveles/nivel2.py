@@ -27,8 +27,8 @@ _mostrando_intro = True
 
 
 def _reset_posiciones():
-    state.p1_x=-4.0; state.p1_z=0.0; state.p1_rot=0.0
-    state.p2_x= 4.0; state.p2_z=0.0; state.p2_rot=180.0
+    state.p1_x=-1.5; state.p1_z=3.0; state.p1_rot=0.0
+    state.p2_x= 1.5; state.p2_z=3.0; state.p2_rot=180.0
     state.p1_walking=state.p2_walking=False
     state.p1_anim=state.p2_anim=0.0
     state.k_w=state.k_s=state.k_a=state.k_d=False
@@ -142,6 +142,19 @@ def _set_color(fid):
     glColor3f(r,g,b)
 
 
+def _draw_nombre_3d(f):
+    """Dibuja el nombre de la forma en coordenadas locales (ya dentro de glPushMatrix)."""
+    from OpenGL.GLUT import GLUT_BITMAP_HELVETICA_12, glutBitmapCharacter
+    lbl = f["nombre"].upper()
+    col = (1.0,0.95,0.40) if (f["id"]==_forma_p1 or f["id"]==_forma_p2) else (0.85,0.85,0.85)
+    glDisable(GL_LIGHTING); glDisable(GL_DEPTH_TEST)
+    glColor3fv(col)
+    # Posicion LOCAL: centrado sobre la figura, altura fija 2.6
+    glRasterPos3f(-0.30, 2.6, 0.0)
+    for c in lbl: glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, ord(c))
+    glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)
+
+
 def _draw_formas():
     for f in _FORMAS:
         glPushMatrix(); glTranslatef(f["x"],0.0,f["z"])
@@ -169,8 +182,10 @@ def _draw_formas():
             glPushMatrix(); glRotatef(180,1,0,0); gluDisk(q,0,0.55,14,1); glPopMatrix()
             glPushMatrix(); glTranslatef(0,0,1.8); gluDisk(q,0,0.55,14,1); glPopMatrix()
         elif t=="cono":
+            glPushMatrix(); glRotatef(-90,1,0,0)  # apuntar hacia arriba
             gluCylinder(q,0.80,0.0,2.0,14,4)
-            glPushMatrix(); glRotatef(180,1,0,0); gluDisk(q,0,0.80,14,1); glPopMatrix()
+            glRotatef(180,1,0,0); gluDisk(q,0,0.80,14,1)
+            glPopMatrix()
         elif t=="piramide":
             h2=2.0; b2=0.9
             glBegin(GL_TRIANGLES)
@@ -263,7 +278,9 @@ def _draw_formas():
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
             glDisable(GL_POLYGON_OFFSET_LINE)
             glLineWidth(1.0)
-        gluDeleteQuadric(q); glEnable(GL_LIGHTING); glPopMatrix()
+        gluDeleteQuadric(q); glEnable(GL_LIGHTING)
+        _draw_nombre_3d(f)
+        glPopMatrix()
 
 
 def _draw_hud():
@@ -308,9 +325,9 @@ def _draw_hud():
         for lbl,font,col in lineas:
             if font: txt(w//2-260, base_y, lbl, font, col)
             base_y -= 22
-        txt(w//2-195, h//2-175,
-            "Presiona CUALQUIER TECLA para empezar",
-            GLUT_BITMAP_HELVETICA_12,(0.55,0.55,0.55))
+        txt(w//2-195, h//2-185,
+            ">>> Presiona CUALQUIER TECLA para empezar <<<",
+            GLUT_BITMAP_HELVETICA_12,(0.75,0.75,0.40))
         glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)
         glMatrixMode(GL_PROJECTION); glPopMatrix()
         glMatrixMode(GL_MODELVIEW);  glPopMatrix()
@@ -341,10 +358,10 @@ def _draw_hud():
     txt(w//2-200,h-44,"Total: J1="+str(state.score_p1)+"  J2="+str(state.score_p2),
         GLUT_BITMAP_HELVETICA_12,(0.65,0.65,0.65))
 
-    panel(0,h-92,320,38,0.50,0.05,0.05,0.75)
-    txt(8,h-72,state.hud_msg,GLUT_BITMAP_HELVETICA_18,(1.0,0.70,0.70))
-    panel(w-320,h-92,320,38,0.05,0.10,0.55,0.75)
-    txt(w-315,h-72,state.hud_msg2,GLUT_BITMAP_HELVETICA_18,(0.70,0.80,1.00))
+    panel(0,h-98,w//2-10,44,0.50,0.05,0.05,0.75)
+    txt(8,h-76,state.hud_msg,GLUT_BITMAP_HELVETICA_12,(1.0,0.80,0.80))
+    panel(w//2+10,h-98,w//2-10,44,0.05,0.10,0.55,0.75)
+    txt(w//2+18,h-76,state.hud_msg2,GLUT_BITMAP_HELVETICA_12,(0.80,0.88,1.00))
 
     if state.hud_fb_p1:
         col=(0.20,1.0,0.30) if "orrecto" in state.hud_fb_p1 else (1.0,0.35,0.35)
@@ -367,17 +384,31 @@ def _draw_hud():
 # -- API publica --------------------------------------------------
 def init():
     glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING); glEnable(GL_LIGHT0)
-    glEnable(GL_COLOR_MATERIAL); glColorMaterial(GL_FRONT,GL_AMBIENT_AND_DIFFUSE)
+    # -- Iluminacion Phong: Nivel 2 (Bosque de las Formas) ------
+    # Luz solar cálida desde arriba-derecha
+    glLightfv(GL_LIGHT0, GL_POSITION, [5.0, 14.0, 3.0, 1.0])
+    glLightfv(GL_LIGHT0, GL_AMBIENT,  [0.18, 0.20, 0.14, 1.0])
+    glLightfv(GL_LIGHT0, GL_DIFFUSE,  [0.90, 0.88, 0.75, 1.0])
+    glLightfv(GL_LIGHT0, GL_SPECULAR, [1.00, 0.95, 0.80, 1.0])
+    # Relleno desde izquierda (simula cielo)
+    glEnable(GL_LIGHT1)
+    glLightfv(GL_LIGHT1, GL_POSITION, [-8.0, 8.0,  0.0, 1.0])
+    glLightfv(GL_LIGHT1, GL_AMBIENT,  [0.0,  0.0,  0.0,  1.0])
+    glLightfv(GL_LIGHT1, GL_DIFFUSE,  [0.20, 0.28, 0.22, 1.0])
+    glLightfv(GL_LIGHT1, GL_SPECULAR, [0.0,  0.0,  0.0,  1.0])
+    glEnable(GL_COLOR_MATERIAL)
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
+    # Especular alto para que las aristas doradas brillen
+    glMaterialfv(GL_FRONT, GL_SPECULAR,  [0.70, 0.65, 0.30, 1.0])
+    glMaterialf (GL_FRONT, GL_SHININESS, 72.0)
     glShadeModel(GL_SMOOTH)
-    glLightfv(GL_LIGHT0,GL_POSITION,[2.0,10.0,5.0,0.0])
-    glLightfv(GL_LIGHT0,GL_AMBIENT,[0.30,0.30,0.30,1.0])
-    glLightfv(GL_LIGHT0,GL_DIFFUSE,[0.85,0.85,0.85,1.0])
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.08, 0.10, 0.06, 1.0])
     _reset_nivel()
 
 def reset():
     _reset_nivel()
 
-def display(draw_p1,draw_p2):
+def display_sin_swap(draw_p1,draw_p2):
     glClearColor(0.30,0.55,0.85,1.0)
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
     camera.apply(state.WIN_W,state.WIN_H)
@@ -385,6 +416,10 @@ def display(draw_p1,draw_p2):
     if not state.mostrar_resultado:
         players.draw_players(draw_p1,draw_p2)
     _draw_hud()
+
+
+def display(draw_p1,draw_p2):
+    display_sin_swap(draw_p1,draw_p2)
     glutSwapBuffers()
 
 def update(_v):

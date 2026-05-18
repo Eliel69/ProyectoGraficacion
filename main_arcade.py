@@ -95,8 +95,9 @@ WIN_W, WIN_H = 960, 620
 # Personaje seleccionado por cada jugador en el lobby
 selected_p1  = 0   # J1
 selected_p2  = 1   # J2
-# Flujo de selección: 0=intro, 1=elige J1, 2=elige J2, 3=confirmar, 4=en juego
+# Flujo de seleccion: 0=intro, 1=elige J1, 2=elige J2, 3=confirmar, 4=explorar individual
 _lobby_fase  = 0
+selected_ind = 0   # personaje activo en modo exploracion individual
 estado_juego = -1          # -1 = lobby,  0..5 = personaje activo
 estado_nivel = 0           # 0 = sin nivel, 1..3 = nivel activo
 _confirmando_salida = False # True cuando se muestra dialogo de salida en nivel
@@ -274,10 +275,11 @@ def _draw_lobby_3d():
         dist     = abs(world_x)
         is_sel_p1 = (i == selected_p1) and (_lobby_fase in (1, 3))
         is_sel_p2 = (i == selected_p2) and (_lobby_fase in (2, 3))
-        # El carrusel sigue al jugador cuya fase es activa
+        is_sel_ind = (i == selected_ind) and (_lobby_fase == 4)
         is_sel    = (i == selected_p1 and _lobby_fase == 1) or \
                     (i == selected_p2 and _lobby_fase == 2) or \
-                    (_lobby_fase == 3 and i in (selected_p1, selected_p2))
+                    (_lobby_fase == 3 and i in (selected_p1, selected_p2)) or \
+                    (i == selected_ind and _lobby_fase == 4)
         brt      = _brightness(dist)
         sf       = _scale_fac(dist) * _LOBBY_CFG[i]["scale"]
         y_off    = _LOBBY_CFG[i]["y_off"]
@@ -303,13 +305,15 @@ def _draw_lobby_3d():
         # ── Plataforma bajo el personaje ─────────────────────
         glPushMatrix()
         glTranslatef(world_x, 0.0, z_push)
-        if is_sel_p1 and is_sel_p2:
-            _draw_disc(0.90, 0.12, 0.12, radius=0.85, alpha=0.75)   # rojo  J1
-            _draw_disc(0.12, 0.35, 0.95, radius=1.25, alpha=0.45)   # azul  J2 (aura exterior)
+        if is_sel_ind:
+            _draw_disc(0.90, 0.90, 0.90, radius=1.15, alpha=0.70)   # blanco individual
+        elif is_sel_p1 and is_sel_p2:
+            _draw_disc(0.90, 0.12, 0.12, radius=0.85, alpha=0.75)
+            _draw_disc(0.12, 0.35, 0.95, radius=1.25, alpha=0.45)
         elif is_sel_p1:
-            _draw_disc(0.90, 0.12, 0.12, radius=1.15, alpha=0.70)   # rojo  J1
+            _draw_disc(0.90, 0.12, 0.12, radius=1.15, alpha=0.70)
         elif is_sel_p2:
-            _draw_disc(0.12, 0.35, 0.95, radius=1.15, alpha=0.70)   # azul  J2
+            _draw_disc(0.12, 0.35, 0.95, radius=1.15, alpha=0.70)
         else:
             _draw_disc(0.22, 0.20, 0.35, radius=0.70, alpha=0.28)
         glPopMatrix()
@@ -369,29 +373,28 @@ def _draw_lobby_hud():
     #  FASE 0 — Pantalla de instrucciones
     # ══════════════════════════════════════
     if _lobby_fase == 0:
-        _hud_panel(cx-310, WIN_H//2-140, 620, 280, 0.0, 0.0, 0.0, 0.75)
+        _hud_panel(cx-310, WIN_H//2-165, 620, 330, 0.0, 0.0, 0.0, 0.82)
         lines = [
             ("¡BIENVENIDO AL ARCADE 3D!", GLUT_BITMAP_HELVETICA_18, (0.95, 0.85, 0.20)),
             ("", None, None),
-            ("Paso 1:  Jugador 1 elige su personaje",   GLUT_BITMAP_HELVETICA_12, (1.00, 0.35, 0.35)),
-            ("         Usa las Flechas  ←  →  para navegar", GLUT_BITMAP_HELVETICA_12, (0.88, 0.88, 0.88)),
-            ("         Presiona  ENTER  para confirmar",      GLUT_BITMAP_HELVETICA_12, (0.88, 0.88, 0.88)),
+            ("--- MODO 2 JUGADORES ---", GLUT_BITMAP_HELVETICA_18, (0.70, 0.90, 0.70)),
+            ("Paso 1:  J1 usa Flechas <- -> y ENTER para confirmar.", GLUT_BITMAP_HELVETICA_12, (1.00, 0.55, 0.55)),
+            ("Paso 2:  J2 usa A / D y ESPACIO para confirmar.",       GLUT_BITMAP_HELVETICA_12, (0.55, 0.75, 1.00)),
+            ("Paso 3:  Presiona ENTER para empezar Nivel 1 -> 2 -> 3.", GLUT_BITMAP_HELVETICA_12, (0.40, 0.95, 0.55)),
             ("", None, None),
-            ("Paso 2:  Jugador 2 elige su personaje",   GLUT_BITMAP_HELVETICA_12, (0.40, 0.60, 1.00)),
-            ("         Usa  A / D  para navegar",              GLUT_BITMAP_HELVETICA_12, (0.88, 0.88, 0.88)),
-            ("         Presiona  ESPACIO  para confirmar",     GLUT_BITMAP_HELVETICA_12, (0.88, 0.88, 0.88)),
-            ("", None, None),
-            ("Paso 3:  Presiona  N  para jugar juntos", GLUT_BITMAP_HELVETICA_12, (0.40, 0.95, 0.55)),
-            ("         (N  avanza de nivel: 1 → 2 → 3)",      GLUT_BITMAP_HELVETICA_12, (0.65, 0.75, 0.65)),
+            ("--- MODO INDIVIDUAL ---", GLUT_BITMAP_HELVETICA_18, (0.90, 0.75, 0.30)),
+            ("Presiona F1 para explorar un personaje tu solo.", GLUT_BITMAP_HELVETICA_12, (0.88, 0.78, 0.55)),
+            ("Usa ESC dentro del personaje para regresar aqui.", GLUT_BITMAP_HELVETICA_12, (0.75, 0.75, 0.75)),
         ]
-        base_y = WIN_H//2 + 120
+        base_y = WIN_H//2 + 140
         for lbl, font, col in lines:
             if font:
-                _txt(cx - 260, base_y, lbl, font, col)
-            base_y -= 20
-        _txt(cx - 130, WIN_H//2 - 155,
-             "Presiona CUALQUIER TECLA para empezar",
-             GLUT_BITMAP_HELVETICA_12, (0.60, 0.60, 0.60))
+                _txt(cx - 270, base_y, lbl, font, col)
+            base_y -= 22
+        _hud_panel(cx-220, WIN_H//2-172, 440, 32, 0.25, 0.25, 0.0, 0.85)
+        _txt(cx - 205, WIN_H//2-160,
+             ">>> Presiona CUALQUIER TECLA para empezar <<<",
+             GLUT_BITMAP_HELVETICA_12, (1.0, 0.95, 0.40))
 
     # ══════════════════════════════════════
     #  FASE 1 — J1 elige
@@ -468,18 +471,38 @@ def _draw_lobby_hud():
         _txt(cx-220, WIN_H//2-38,
              "Presiona  ENTER  para empezar a jugar  (Nivel 1 -> 2 -> 3)",
              GLUT_BITMAP_HELVETICA_12, (0.40, 0.95, 0.55))
+        _txt(cx-195, WIN_H//2-60,
+             "F1 : explorar tu personaje de forma individual",
+             GLUT_BITMAP_HELVETICA_12, (0.60, 0.60, 0.65))
         _draw_lobby_dots(selected_p1, selected_p2, (0.90,0.10,0.10), (0.10,0.35,0.95))
+
+    # ══════════════════════════════════════
+    #  FASE 4 — Explorar individual
+    # ══════════════════════════════════════
+    elif _lobby_fase == 4:
+        ch = CHARACTERS[selected_ind]
+        _hud_panel(cx-220, WIN_H//2+50, 440, 50, 0.0, 0.0, 0.0, 0.75)
+        _txt(cx-200, WIN_H//2+73,
+             "MODO INDIVIDUAL — Exploracion de personajes",
+             GLUT_BITMAP_HELVETICA_18, (0.90, 0.75, 0.30))
+        _hud_panel(cx-180, WIN_H//2+20, 360, 26, 0.0, 0.0, 0.0, 0.65)
+        _txt(cx-165, WIN_H//2+28,
+             ch["label"] + "  —  Autor: " + ch["author"],
+             GLUT_BITMAP_HELVETICA_12, (0.90, 0.90, 0.90))
+        _draw_lobby_dots(selected_ind, -1, (0.90,0.90,0.90), None)
 
     # ── Barra de controles inferior ───────────────────────────
     _hud_panel(0, 0, WIN_W, 38, 0.0, 0.0, 0.0, 0.60)
     if _lobby_fase == 0:
-        hint = "Cualquier tecla : continuar     ESC : salir"
+        hint = "Cualquier tecla : empezar    F1 : explorar personaje individual    ESC : salir"
     elif _lobby_fase == 1:
         hint = "Flechas : navegar    ENTER : confirmar personaje de J1    ESC : salir"
     elif _lobby_fase == 2:
         hint = "A/D : navegar    ESPACIO : confirmar personaje de J2    ESC : volver"
+    elif _lobby_fase == 4:
+        hint = "Flechas : navegar personaje    ENTER : explorar este    ESC : volver a instrucciones"
     else:
-        hint = "ENTER : jugar Nivel 1    1 : cambiar J1    2 : cambiar J2    ESC : salir"
+        hint = "ENTER : jugar    1/2 : cambiar personaje    F1 : explorar individual    ESC : salir"
     _txt(WIN_W//2 - len(hint)*3, 14, hint,
          GLUT_BITMAP_HELVETICA_12, (0.78, 0.78, 0.78))
 
@@ -680,9 +703,10 @@ def display_maestro():
     if estado_nivel > 0:
         mod = MODULOS_NIVELES[estado_nivel]
         draw_p1, draw_p2 = _get_draw_fns()
-        mod.display(draw_p1, draw_p2)
+        mod.display_sin_swap(draw_p1, draw_p2)
         if _confirmando_salida:
             _draw_confirm_exit()
+        glutSwapBuffers()
     elif estado_juego == -1:
         _draw_lobby_3d()
         _draw_lobby_hud()
@@ -710,8 +734,10 @@ def keyboard_maestro(key, x, y):
             glutPostRedisplay()
             return
         if estado_juego == -1:
-            if _lobby_fase in (0, 1):
+            if _lobby_fase == 0:
                 sys.exit(0)
+            elif _lobby_fase in (1, 4):
+                _lobby_fase = 0   # volver a instrucciones
             elif _lobby_fase == 2:
                 _lobby_fase = 1
             elif _lobby_fase == 3:
@@ -784,6 +810,13 @@ def keyboard_maestro(key, x, y):
                 _lobby_fase = 2; _lob_target = selected_p2 * SPACING
             glutPostRedisplay()
             return
+
+        elif _lobby_fase == 4:
+            if key in (b'\r', b'\n'):
+                _activate_character(selected_ind)
+            glutPostRedisplay()
+            return
+
     else:
         MODULOS_PERSONAJES[estado_juego].keyboard(key, x, y)
 
@@ -795,12 +828,12 @@ def keyboard_up_maestro(key, x, y):
 
 
 def special_maestro(key, x, y):
-    global selected_p1, _lob_target
+    global selected_p1, selected_ind, _lob_target, _lobby_fase
     if estado_nivel > 0:
         MODULOS_NIVELES[estado_nivel].special_keys(key, x, y)
         return
     if estado_juego == -1:
-        if _lobby_fase == 1:   # solo J1 con flechas
+        if _lobby_fase == 1:
             if key == GLUT_KEY_LEFT:
                 new = selected_p1 - 1
                 if new >= 0:
@@ -810,6 +843,23 @@ def special_maestro(key, x, y):
                 if new < N:
                     selected_p1 = new; _lob_target = selected_p1 * SPACING
             glutPostRedisplay()
+        elif _lobby_fase == 4:
+            # Navegar en modo individual con flechas
+            if key == GLUT_KEY_LEFT:
+                new = selected_ind - 1
+                if new >= 0:
+                    selected_ind = new; _lob_target = selected_ind * SPACING
+            elif key == GLUT_KEY_RIGHT:
+                new = selected_ind + 1
+                if new < N:
+                    selected_ind = new; _lob_target = selected_ind * SPACING
+            glutPostRedisplay()
+        elif _lobby_fase in (0, 3):
+            # F1: entrar al modo exploración individual
+            if key == GLUT_KEY_F1:
+                _lobby_fase = 4
+                _lob_target = selected_ind * SPACING
+                glutPostRedisplay()
     else:
         if hasattr(MODULOS_PERSONAJES[estado_juego], 'special_keys'):
             MODULOS_PERSONAJES[estado_juego].special_keys(key, x, y)

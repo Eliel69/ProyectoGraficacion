@@ -234,9 +234,9 @@ def _draw_hud():
         for lbl,font,col in lineas:
             if font: txt(w//2-260, base_y, lbl, font, col)
             base_y -= 22
-        txt(w//2-195, h//2-175,
-            "Presiona CUALQUIER TECLA para empezar",
-            GLUT_BITMAP_HELVETICA_12,(0.55,0.55,0.55))
+        txt(w//2-195, h//2-185,
+            ">>> Presiona CUALQUIER TECLA para empezar <<<",
+            GLUT_BITMAP_HELVETICA_12,(0.75,0.75,0.40))
         glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)
         glMatrixMode(GL_PROJECTION); glPopMatrix()
         glMatrixMode(GL_MODELVIEW);  glPopMatrix()
@@ -301,11 +301,25 @@ def _draw_hud():
 # -- API publica --------------------------------------------------
 def init():
     glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING); glEnable(GL_LIGHT0)
-    glEnable(GL_COLOR_MATERIAL); glColorMaterial(GL_FRONT,GL_AMBIENT_AND_DIFFUSE)
+    # -- Iluminacion Phong: Nivel 1 (Valle de los Colores) ------
+    # Luz principal blanca desde arriba-adelante
+    glLightfv(GL_LIGHT0, GL_POSITION, [2.0, 12.0, 6.0, 1.0])
+    glLightfv(GL_LIGHT0, GL_AMBIENT,  [0.22, 0.22, 0.22, 1.0])
+    glLightfv(GL_LIGHT0, GL_DIFFUSE,  [0.85, 0.85, 0.85, 1.0])
+    glLightfv(GL_LIGHT0, GL_SPECULAR, [1.00, 1.00, 1.00, 1.0])
+    # Luz de relleno lateral suave (LIGHT1)
+    glEnable(GL_LIGHT1)
+    glLightfv(GL_LIGHT1, GL_POSITION, [-6.0, 6.0, -4.0, 1.0])
+    glLightfv(GL_LIGHT1, GL_AMBIENT,  [0.0,  0.0,  0.0,  1.0])
+    glLightfv(GL_LIGHT1, GL_DIFFUSE,  [0.25, 0.25, 0.30, 1.0])
+    glLightfv(GL_LIGHT1, GL_SPECULAR, [0.0,  0.0,  0.0,  1.0])
+    # Material global con especular moderado
+    glEnable(GL_COLOR_MATERIAL)
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
+    glMaterialfv(GL_FRONT, GL_SPECULAR,  [0.50, 0.50, 0.50, 1.0])
+    glMaterialf (GL_FRONT, GL_SHININESS, 48.0)
     glShadeModel(GL_SMOOTH)
-    glLightfv(GL_LIGHT0,GL_POSITION,[0.0,10.0,5.0,0.0])
-    glLightfv(GL_LIGHT0,GL_AMBIENT,[0.35,0.35,0.35,1.0])
-    glLightfv(GL_LIGHT0,GL_DIFFUSE,[0.80,0.80,0.80,1.0])
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.10, 0.10, 0.10, 1.0])
     _reset_nivel()
 
 
@@ -313,7 +327,7 @@ def reset():
     _reset_nivel()
 
 
-def display(draw_p1,draw_p2):
+def display_sin_swap(draw_p1,draw_p2):
     glClearColor(0.88,0.88,0.88,1.0)
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
     camera.apply(state.WIN_W,state.WIN_H)
@@ -321,8 +335,12 @@ def display(draw_p1,draw_p2):
     if not state.mostrar_resultado:
         players.draw_players(draw_p1,draw_p2)
     _draw_hud()
-    glutSwapBuffers()
 
+
+
+def display(draw_p1,draw_p2):
+    display_sin_swap(draw_p1,draw_p2)
+    glutSwapBuffers()
 
 def update(_v):
     global _cooldown_p1,_cooldown_p2
