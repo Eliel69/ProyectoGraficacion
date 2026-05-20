@@ -7,6 +7,15 @@ from OpenGL.GLUT import *
 
 from gato_3d.actions import state, camera, update, ui_overlay
 from gato_3d.resources import grid, scenes, input_handlers, sounds
+def stop_audio():
+    """Para todo el audio al salir al lobby."""
+    try:
+        sounds.stop_scene()
+        import pygame
+        pygame.mixer.stop()
+    except Exception:
+        pass
+
 from gato_3d.cat_character import cat
 
 def init():

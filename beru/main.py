@@ -17,6 +17,13 @@ from beru import collisions
 from beru.caracteres import beru
 from beru.Utilerias import scenarios
 from beru.resources import sound_manager
+def stop_audio():
+    """Para todo el audio al salir al lobby."""
+    try:
+        sound_manager.stop_all()
+    except Exception:
+        pass
+
 from beru.resources import input_handlers
 from beru.resources import ui
 from beru.resources import grid
@@ -125,3 +132,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

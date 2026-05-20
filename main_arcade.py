@@ -744,7 +744,13 @@ def keyboard_maestro(key, x, y):
                 _lobby_fase = 2
             glutPostRedisplay()
             return
-        # en modo personaje individual -> volver al lobby
+        # en modo personaje individual -> parar audio y volver al lobby
+        try:
+            mod = MODULOS_PERSONAJES[estado_juego]
+            if hasattr(mod, 'stop_audio'):
+                mod.stop_audio()
+        except Exception:
+            pass
         estado_juego = -1
         arcade_init()
         glutPostRedisplay()

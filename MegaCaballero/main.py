@@ -11,6 +11,16 @@ from MegaCaballero.characters import MegaKknight
 from MegaCaballero.utilerias.escenarios import escenarios
 from MegaCaballero.actions import camera, state
 from MegaCaballero.utilerias.sonidos import audio_manager
+def stop_audio():
+    """Para todo el audio al salir al lobby."""
+    try:
+        if audio_manager.current_bg_music:
+            audio_manager.current_bg_music.stop()
+        import pygame
+        pygame.mixer.stop()
+    except Exception:
+        pass
+
 from MegaCaballero.resources import grid, input_handlers
 from MegaCaballero.actions import update as logica_update
 from MegaCaballero.resources import ui_menu

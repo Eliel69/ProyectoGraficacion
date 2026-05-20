@@ -12,6 +12,16 @@ from totoro.caracteres import totoro
 from totoro.actions import camara, state
 from totoro.actions import update as update_module
 from totoro.resources import input_handlers, grid, sound_manager
+def stop_audio():
+    """Para todo el audio al salir al lobby."""
+    try:
+        sound_manager.stop_music()
+        sound_manager.stop_walk()
+        import pygame
+        pygame.mixer.stop()
+    except Exception:
+        pass
+
 
 def init():
     """Inicialización de OpenGL + audio. Llamado por el arcade al activar este personaje."""

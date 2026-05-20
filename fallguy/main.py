@@ -9,6 +9,14 @@ from fallguy.characters import FullGuys as FallGuy
 from fallguy.actions    import camera, state
 from fallguy.actions    import update as update_module
 from fallguy.resources  import grid, input_handlers, scenes, sounds
+def stop_audio():
+    """Para todo el audio al salir al lobby."""
+    try:
+        import pygame
+        pygame.mixer.stop()
+    except Exception:
+        pass
+
 
 WIN_W, WIN_H = 900, 650
 

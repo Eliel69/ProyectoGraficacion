@@ -11,6 +11,15 @@ from AmongUsFinal.characters import AmongUs
 from AmongUsFinal.utilerias.escenarios import escenarios
 from AmongUsFinal.actions import camera, state
 from AmongUsFinal.utilerias.sonidos import audio_manager
+def stop_audio():
+    """Para todo el audio al salir al lobby."""
+    try:
+        audio_manager.sonidoOff()
+        import pygame
+        pygame.mixer.stop()
+    except Exception:
+        pass
+
 from AmongUsFinal.resources import grid, input_handlers
 from AmongUsFinal.actions import update as logica_update
 from AmongUsFinal.resources import ui_menu
