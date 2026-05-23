@@ -22,7 +22,10 @@ def update():
         state.p1_z = _clamp(state.p1_z + (dz1/l)*state.p1_speed, -_BOUND, _BOUND)
         state.p1_rot = math.degrees(math.atan2(dx1, -dz1))
     state.p1_walking = moving1
-    state.p1_anim = (state.p1_anim + 0.25) if moving1 else state.p1_anim * 0.8
+    # Safety: si no hay tecla activa, forzar parada
+    if not (state.k_w or state.k_s or state.k_a or state.k_d):
+        state.p1_walking = False
+    state.p1_anim = (state.p1_anim + 0.25) if state.p1_walking else state.p1_anim * 0.8
 
     dx2, dz2 = 0.0, 0.0
     if state.k_up:    dz2 -= 1.0
@@ -36,7 +39,9 @@ def update():
         state.p2_z = _clamp(state.p2_z + (dz2/l)*state.p2_speed, -_BOUND, _BOUND)
         state.p2_rot = math.degrees(math.atan2(dx2, -dz2))
     state.p2_walking = moving2
-    state.p2_anim = (state.p2_anim + 0.25) if moving2 else state.p2_anim * 0.8
+    if not (state.k_up or state.k_down or state.k_left or state.k_right):
+        state.p2_walking = False
+    state.p2_anim = (state.p2_anim + 0.25) if state.p2_walking else state.p2_anim * 0.8
 
 # Escala y offset Y por personaje en los niveles
 # 0=FallGuy 1=AmongUs 2=Beru 3=Gato 4=MegaCaballero 5=Totoro
