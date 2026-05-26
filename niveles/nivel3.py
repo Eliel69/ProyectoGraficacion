@@ -1,3 +1,33 @@
+# ============================================================
+# niveles/nivel3.py  — El Salon de los Instrumentos
+# ------------------------------------------------------------
+# OBJETIVO PEDAGOGICO: Memoria auditiva de corto plazo.
+# A diferencia de los niveles anteriores, la pista NO es visual:
+# el juego reproduce un instrumento y el nino debe recordarlo
+# mientras navega el mapa.
+#
+# MECANICA "ESCUCHA Y MEMORIZA":
+#   1. Se reproduce UN sonido para AMBOS jugadores.
+#   2. Los jugadores recorren el mapa buscando el instrumento.
+#   3. Al acercarse a un objeto (radio < 3.5 uds) lo escuchan:
+#      - Volumen 1.0 si es el correcto.
+#      - Volumen 0.25 si es incorrecto (pista sonora atenuada).
+#   4. Al tocar el correcto: +2 pts, pausa de 3.5s, nuevo sonido.
+#   5. Al tocar incorrecto: -1 pts, instruccion NO cambia.
+#      (El error no revela la respuesta; el nino debe seguir buscando)
+#
+# DISTRACTORES: 4 objetos con sonidos "graciosos" (resorte,
+# burbuja, boing, silbato) que nunca son el objetivo correcto.
+# Muestran "???" como nombre para mantener el misterio.
+#
+# INTERVALO DE SONIDO: _INTERVALO_FRAMES = 150 (~2.5s).
+# Si _frame - _last_play < 150, no se reproduce nada nuevo.
+# Evita que multiples colisiones simultane superponganan audio.
+#
+# PAUSA ENTRE RONDAS: _pausa_ronda = 210 (~3.5s).
+# Cuando alguien acierta, se pausa el movimiento para que
+# el sonido de acierto termine antes del nuevo instrumento.
+# ============================================================
 # niveles/nivel3.py  — El Salon de los Instrumentos
 # Mecanica "Escucha y Memoriza" simplificada:
 #   1. Pantalla de instrucciones -> cualquier tecla la cierra.

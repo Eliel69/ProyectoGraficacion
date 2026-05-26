@@ -1,3 +1,23 @@
+# ============================================================
+# niveles/nivel1.py  — El Valle de los Colores
+# ------------------------------------------------------------
+# OBJETIVO PEDAGOGICO: Discriminacion cromatica.
+# El nino debe asociar una instruccion textual ("Toca el cubo Rojo!")
+# con el objeto correcto del mapa, usando solo el color como pista.
+#
+# MECANICA:
+#   - 10 objetos (5 cubos + 5 esferas) de 10 colores distintos.
+#   - J1 y J2 reciben instrucciones INDEPENDIENTES Y ALEATORIAS.
+#   - +2 pts por acierto, -1 pt por error (minimo 0).
+#   - Al llegar a META_PUNTOS=20 se congela el nivel.
+#
+# ALEATORIEDAD: random.randint(0, len(_OBJETOS)-1) elige el
+# siguiente objetivo. Cada jugador tiene su propio _obj_p1/_obj_p2
+# y su propio cooldown, por eso las instrucciones son independientes.
+#
+# COLISION: distancia euclidiana 2D en el plano XZ.
+#   dist = sqrt((px-ox)^2 + (pz-oz)^2) < (RADIO_OBJ + RADIO_JUG)
+# ============================================================
 # niveles/nivel1.py  — El Valle de los Colores
 # Dos formas (cubo y esfera), 10 colores distintos.
 # +2 por acierto, -1 por error. Meta: 20 puntos.
@@ -79,6 +99,21 @@ def _dist2d(ax,az,bx,bz):
 
 
 def _check_colisiones():
+    """
+    Detecta colision entre cada jugador y los objetos del nivel.
+
+    Cooldown: despues de una colision, el jugador tiene ~1.8s
+    (110 frames a 60fps) de inmunidad. Esto evita que al quedarse
+    parado sobre un objeto se acumulen puntos/penalizaciones.
+
+    Flujo por jugador:
+      1. Si cooldown > 0: decrementar y saltar.
+      2. Para cada objeto: calcular distancia 2D.
+      3. Si distancia < (radio_obj + radio_jug): colision detectada.
+         - Si es el objetivo: +2 pts, animacion, nueva instruccion.
+         - Si no es el objetivo: -1 pt, feedback de error.
+      4. Activar cooldown y generar nueva instruccion.
+    """
     global _cooldown_p1,_cooldown_p2
     if state.nivel_completado or _mostrando_intro:
         return

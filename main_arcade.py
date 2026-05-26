@@ -1,4 +1,27 @@
 # ============================================================
+#  main_arcade.py  —  ORQUESTADOR PRINCIPAL
+# ------------------------------------------------------------
+# Este archivo es el "cerebro" del juego. Sus responsabilidades:
+#
+#  1. INICIALIZAR OpenGL/GLUT y la ventana.
+#  2. GESTIONAR EL ESTADO global del juego mediante la variable
+#     estado_nivel (0=lobby, 1/2/3=nivel activo) y
+#     estado_juego (-1=lobby, 0-5=personaje individual).
+#  3. DISTRIBUIR EVENTOS de teclado/mouse al modulo correcto.
+#  4. CONTROLAR LAS TRANSICIONES entre lobby y niveles.
+#  5. DIBUJAR los overlays globales (winner, confirmacion salida,
+#     toast de musica) que no pertenecen a ningun nivel especifico.
+#
+# FLUJO DE FASES DEL LOBBY:
+#   0 = pantalla de instrucciones (bienvenida)
+#   1 = J1 navega con flechas
+#  1b = J1 confirma con S/N
+#   2 = J2 navega con A/D
+#  2b = J2 confirma con S/N
+#   4 = modo individual (F1), sin niveles
+#
+
+# ============================================================
 #  ARCADE SELECTOR MAESTRO  —  Lobby 3D
 #  Instrucciones de navegación:
 #    Flechas ← →  o  arrastrar mouse  :  cambiar personaje
@@ -104,6 +127,8 @@ _selecting    = 1   # 1=J1 navega, 2=J2 navega (usado en _navigate)
 estado_juego = -1          # -1 = lobby,  0..5 = personaje activo
 estado_nivel = 0           # 0 = sin nivel, 1..3 = nivel activo
 _confirmando_salida = False # True cuando se muestra dialogo de salida en nivel
+_hud_music_msg      = ""    # Mensaje temporal "Musica ON/OFF" en pantalla
+_hud_music_timer    = 0     # Frames que se muestra el mensaje
 _initialized = [False] * N
 
 # Animación del carrusel
@@ -527,7 +552,7 @@ def _draw_lobby_hud():
     # ── Barra de controles inferior ───────────────────────────
     _hud_panel(0, 0, WIN_W, 38, 0.0, 0.0, 0.0, 0.60)
     if _lobby_fase == 0:
-        hint = "Cualquier tecla : empezar    F1 : explorar personaje individual    ESC : salir"
+        hint = "Cualquier tecla : empezar    F1 : explorar individual    M : musica on/off    ESC : salir"
     elif _lobby_fase == 1:
         hint = "Flechas : navegar    ENTER : confirmar personaje de J1    ESC : salir"
     elif _lobby_fase == 2:
@@ -605,7 +630,18 @@ def _activate_character(idx):
 # ── Expresion feliz por personaje al confirmar seleccion ─────
 
 def _set_happy_expression(idx):
-    """Activa la expresión feliz del personaje seleccionado."""
+    """
+    Activa la expresion de confirmacion de cada personaje al ser elegido.
+
+    Cada personaje tiene su propio sistema de expresiones:
+    - FallGuy, AmongUs, Totoro: usan state.expression = "nombre"
+    - Beru: usa update.set_expression() porque tiene un timer interno
+    - Gato 3D: usa state.current_expression (nombre diferente de variable)
+    - MegaCaballero: usa numeros enteros (0=neutral, 3=feliz)
+
+    El try/except individual por personaje garantiza que si uno
+    falla (ej. modulo no importado aun), los demas siguen funcionando.
+    """
     try:
         # 0=FallGuy  1=AmongUs  2=Beru  3=Gato  4=MegaCaballero  5=Totoro
         if idx == 0:
@@ -631,7 +667,15 @@ def _set_happy_expression(idx):
 
 
 def _reset_all_expressions():
-    """Resetea la expresión de todos los personajes a neutral."""
+    """
+    Resetea todos los personajes a expresion neutral.
+    Se llama en 3 momentos:
+      1. Al terminar el nivel 3 (antes del winner).
+      2. Al cerrar la pantalla de ganador.
+      3. Al salir del modo individual con ESC.
+    Sin este reset, la cara feliz quedaria "congelada"
+    la proxima vez que se explore el personaje.
+    """
     try:
         from fallguy.actions import state as _s0;      _s0.expression = "neutral"
     except Exception: pass
@@ -721,6 +765,16 @@ def _navigate_to(idx):
 
 def _get_draw_fns():
     """
+    Devuelve las funciones de dibujo del personaje para los niveles.
+
+    Cada personaje tiene una funcion draw_*_full() en su modulo.
+    Esta funcion mapea el indice (0-5) a la funcion correcta.
+
+    Si J1 y J2 eligieron el MISMO personaje, se aplica un tinte
+    verdoso a J2 usando glColor4f antes de llamar su funcion de
+    dibujo. Esto funciona porque GL_COLOR_MATERIAL esta activo,
+    haciendo que glColor afecte el material del objeto.
+    
     Devuelve (draw_p1, draw_p2) según los personajes seleccionados.
     Si ambos jugadores eligieron el mismo personaje, P2 se dibuja
     con un tinte verde para diferenciarse (glColor llama antes del draw).
@@ -891,10 +945,37 @@ def _draw_winner_overlay():
     glMatrixMode(GL_MODELVIEW);  glPopMatrix()
 
 
+def _draw_music_toast():
+    """Muestra un mensaje temporal en esquina superior derecha al toglear musica."""
+    w = glutGet(GLUT_WINDOW_WIDTH); h = glutGet(GLUT_WINDOW_HEIGHT)
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity()
+    gluOrtho2D(0, w, 0, h)
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
+    glDisable(GL_LIGHTING); glDisable(GL_DEPTH_TEST)
+    # Fondo semitransparente
+    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    glColor4f(0.0, 0.0, 0.0, 0.75)
+    glBegin(GL_QUADS)
+    glVertex2f(w-160, h-40); glVertex2f(w, h-40)
+    glVertex2f(w, h); glVertex2f(w-160, h)
+    glEnd(); glDisable(GL_BLEND)
+    # Texto
+    col = (0.40, 1.0, 0.40) if "ON" in _hud_music_msg else (1.0, 0.45, 0.45)
+    glColor3f(*col)
+    glRasterPos2f(w-150, h-24)
+    for c in _hud_music_msg:
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(c))
+    glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)
+    glMatrixMode(GL_PROJECTION); glPopMatrix()
+    glMatrixMode(GL_MODELVIEW);  glPopMatrix()
+
+
 def display_maestro():
     global estado_nivel
     if _winner_active:
         _draw_winner_overlay()
+        if _hud_music_msg:
+            _draw_music_toast()
         glutSwapBuffers()
         return
     if estado_nivel > 0:
@@ -903,10 +984,14 @@ def display_maestro():
         mod.display_sin_swap(draw_p1, draw_p2)
         if _confirmando_salida:
             _draw_confirm_exit()
+        if _hud_music_msg:
+            _draw_music_toast()
         glutSwapBuffers()
     elif estado_juego == -1:
         _draw_lobby_3d()
         _draw_lobby_hud()
+        if _hud_music_msg:
+            _draw_music_toast()
         glutSwapBuffers()
     else:
         glEnable(GL_DEPTH_TEST)
@@ -978,6 +1063,21 @@ def keyboard_maestro(key, x, y):
         else:
             _confirmando_salida = False
         glutPostRedisplay()
+        return
+
+    # ── Tecla M: toggle de musica ────────────────────────────────
+    # Disponible en cualquier momento EXCEPTO nivel 3,
+    # porque en ese nivel el audio ES la mecanica del juego.
+    # lobby_audio.toggle_music() devuelve el nuevo estado (True/False)
+    # que se muestra en el toast visual por 2 segundos.
+    if key in (b'm', b'M'):
+        global _hud_music_msg, _hud_music_timer
+        # Solo toggle si NO estamos en nivel 3
+        if estado_nivel != 3:
+            estado = lobby_audio.toggle_music()
+            _hud_music_msg   = "Musica: ON" if estado else "Musica: OFF"
+            _hud_music_timer = 120   # mostrar ~2s
+            glutPostRedisplay()
         return
 
     # ── Dentro de un nivel: delegar al nivel (sin ENTER libre) ─
@@ -1214,6 +1314,12 @@ def timer_maestro(value):
         if hasattr(MODULOS_PERSONAJES[estado_juego], 'update'):
             MODULOS_PERSONAJES[estado_juego].update(value)
 
+    # Decrementar timer del mensaje de música
+    global _hud_music_timer
+    if _hud_music_timer > 0:
+        _hud_music_timer -= 1
+        if _hud_music_timer == 0:
+            _hud_music_msg = ""
     glutPostRedisplay()
     glutTimerFunc(16, timer_maestro, 0)
 

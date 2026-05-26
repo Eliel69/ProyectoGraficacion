@@ -1,3 +1,25 @@
+# ============================================================
+# niveles/nivel2.py  — El Bosque de las Formas
+# ------------------------------------------------------------
+# OBJETIVO PEDAGOGICO: Discriminacion morfologica (formas 3D).
+# Todos los objetos son del mismo color DORADO para forzar al
+# nino a identificar por forma, no por color.
+#
+# FORMAS: esfera, cubo, cilindro, cono, piramide, toroide,
+#         capsula, prisma hexagonal (8 distintas).
+#
+# PISTAS en el HUD: en lugar del nombre directo, se usa una
+# descripcion geometrica: "como una dona" (toroide),
+# "con punta arriba" (cono), "como un tubo" (cilindro).
+# Esto incrementa la dificultad cognitiva respecto al nivel 1.
+#
+# ARISTAS NEGRAS: cubo, piramide y prisma usan glPolygonMode(GL_LINE)
+# con glPolygonOffset para dibujar aristas negras sobre el solido.
+# Esto ayuda visualmente a distinguir las caras de las formas.
+#
+# PUNTAJE: mismo sistema que nivel 1 (+2/-1, meta 20 pts).
+# El puntaje se ACUMULA en score_p1/score_p2 de state.py.
+# ============================================================
 # niveles/nivel2.py  — El Bosque de las Formas
 # 8 formas distintas (misma paleta dorada), instrucciones independientes J1/J2.
 # +2 acierto, -1 error. Meta 20 pts. Acumula al score global.
