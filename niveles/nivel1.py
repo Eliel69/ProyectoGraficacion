@@ -301,8 +301,6 @@ def _draw_hud():
     txt(10,h-22,"NIVEL 1 - Valle de los Colores",GLUT_BITMAP_HELVETICA_18,(1.0,0.85,0.20))
     txt(w-230,h-22,"J1: "+str(state.nivel_score_p1)+"/20   J2: "+str(state.nivel_score_p2)+"/20",
         GLUT_BITMAP_HELVETICA_18,(0.90,0.90,1.00))
-    txt(w//2-200,h-44,"Total: J1="+str(state.score_p1)+"  J2="+str(state.score_p2),
-        GLUT_BITMAP_HELVETICA_12,(0.65,0.65,0.65))
 
     # Instruccion J1
     panel(0,h-92,310,38,0.50,0.05,0.05,0.75)
@@ -326,7 +324,9 @@ def _draw_hud():
     panel(w-200,0,200,36,0.05,0.10,0.55,0.70)
     txt(8,14,"J1  WASD - mover",GLUT_BITMAP_HELVETICA_12,(1.0,0.75,0.75))
     txt(w-195,14,"J2  Flechas - mover",GLUT_BITMAP_HELVETICA_12,(0.75,0.85,1.0))
-    txt(w//2-140,14,"ESC: confirmar salida al lobby",GLUT_BITMAP_HELVETICA_12,(0.55,0.55,0.55))
+    txt(w//2-140,22,"Total: J1="+str(state.score_p1)+"  J2="+str(state.score_p2),
+        GLUT_BITMAP_HELVETICA_12,(0.75,0.75,0.75))
+    txt(w//2-140,8,"ESC: confirmar salida al lobby",GLUT_BITMAP_HELVETICA_12,(0.45,0.45,0.45))
 
     glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)
     glMatrixMode(GL_PROJECTION); glPopMatrix()

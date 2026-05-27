@@ -20,7 +20,12 @@
 #  2b = J2 confirma con S/N
 #   4 = modo individual (F1), sin niveles
 #
-
+# PREGUNTA TIPICA:
+#   "?Por que hay un display_sin_swap() ademas de display()?"
+#   Porque cuando hay un dialogo (confirmacion de salida, toast
+#   de musica), main_arcade necesita dibujar algo ENCIMA de lo
+#   que ya dibujo el nivel, ANTES de hacer el swap de buffers.
+#   Si el nivel hiciera el swap el dialogo quedaria oculto.
 # ============================================================
 #  ARCADE SELECTOR MAESTRO  —  Lobby 3D
 #  Instrucciones de navegación:
@@ -726,8 +731,11 @@ def _activate_nivel(num):
             print(f"[Arcade] reset() error en nivel {num}: {e}")
 
     # Parar lobby y arrancar música del nivel
-    lobby_audio.stop_lobby()
-    lobby_audio.play_nivel(num)
+    if num == 3:
+        lobby_audio.disable_for_nivel3()  # corta todo y bloquea M
+    else:
+        lobby_audio.stop_lobby()
+        lobby_audio.play_nivel(num)
     glutPostRedisplay()
 
 
@@ -863,6 +871,7 @@ def _hide_winner():
     global _winner_active
     _winner_active = False
     _reset_all_expressions()
+    lobby_audio.restore_music()
     lobby_audio.stop_aplausos()
     lobby_audio.play_lobby()
 
@@ -946,23 +955,18 @@ def _draw_winner_overlay():
 
 
 def _draw_music_toast():
-    """Muestra un mensaje temporal en esquina superior derecha al toglear musica."""
+    """Toast de musica centrado horizontalmente, debajo del HUD superior."""
     w = glutGet(GLUT_WINDOW_WIDTH); h = glutGet(GLUT_WINDOW_HEIGHT)
     glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity()
     gluOrtho2D(0, w, 0, h)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     glDisable(GL_LIGHTING); glDisable(GL_DEPTH_TEST)
-    # Fondo semitransparente
-    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    glColor4f(0.0, 0.0, 0.0, 0.75)
-    glBegin(GL_QUADS)
-    glVertex2f(w-160, h-40); glVertex2f(w, h-40)
-    glVertex2f(w, h); glVertex2f(w-160, h)
-    glEnd(); glDisable(GL_BLEND)
-    # Texto
-    col = (0.40, 1.0, 0.40) if "ON" in _hud_music_msg else (1.0, 0.45, 0.45)
+    # Texto simple sobre la barra inferior, sin cuadro
+    cx = w // 2
+    col = (0.40, 1.0, 0.40) if "ON" in _hud_music_msg else (1.0, 0.35, 0.35)
     glColor3f(*col)
-    glRasterPos2f(w-150, h-24)
+    offset = len(_hud_music_msg) * 6
+    glRasterPos2f(cx - offset, 54)
     for c in _hud_music_msg:
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(c))
     glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING)

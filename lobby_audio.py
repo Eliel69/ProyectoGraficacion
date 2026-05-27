@@ -13,6 +13,11 @@
 # Nivel 3 NO tiene musica de fondo porque el audio ES
 # la mecanica de juego (identificar instrumentos).
 #
+# Pregunta tipica:
+#   "?Por que canales fijos?"
+#   Los personajes ya usan canales 0-27 para sus efectos de
+#   sonido. Usar canales altos (28-30) evita conflictos.
+#   pygame.mixer.set_num_channels(32) garantiza que existan.
 # ============================================================
 import os, pygame
 
@@ -123,6 +128,15 @@ def stop_aplausos():
     try:
         if _aplausos_ch: _aplausos_ch.stop()
     except Exception: pass
+
+
+def disable_for_nivel3():
+    """Apaga la musica y la bloquea al entrar al nivel 3.
+    Se llama desde main_arcade._activate_nivel(3)."""
+    global _music_on
+    stop_lobby()
+    stop_nivel()
+    _music_on = False   # bloquea reactivacion via tecla M
 
 
 def toggle_music():
